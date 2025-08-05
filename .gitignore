@@ -65,3 +65,9 @@ episodes.csv
 detailed_summary_test.py 
 
 
+.cursor/  
+
+output/ 
+
+
+

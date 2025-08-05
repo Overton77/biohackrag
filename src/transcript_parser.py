@@ -442,28 +442,27 @@ def parse_episode_from_file(file_path: str) -> Dict:
 
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
+    print('Importing Transcript Parser')
     # Test with the webpage.html file
-    episode_data = parse_episode_from_file('webpage.html') 
-    print("=== PARSED EPISODE DATA (MongoDB Ready) ===")
-    for key, value in episode_data.items():
-        print(f"{key}: {value}")
+    # episode_data = parse_episode_from_file('webpage.html') 
+    # print("=== PARSED EPISODE DATA (MongoDB Ready) ===")
+    # for key, value in episode_data.items():
+    #     print(f"{key}: {value}")
     
-    print("\n" + "="*50)
-    print("Summary of key fields:")
-    print(f"Episode: {episode_data.get('episode_number')} - {episode_data.get('title')}")
-    print(f"Slug: {episode_data.get('slug')}")
-    print(f"Guest: {episode_data.get('guest', {}).get('name', 'No guest')}")
-    print(f"Transcript available: {episode_data.get('transcript', {}).get('status')}")
-    print(f"Key takeaways count: {len(episode_data.get('key_takeaways', []))}")
-    print(f"Sponsors count: {len(episode_data.get('sponsors', []))}")
-    print(f"Resources count: {len(episode_data.get('resources', []))}")
-    print(f"Timestamps count: {len(episode_data.get('timestamps', []))}")   
-    print("-------------------------------------------------------")
+    # print("\n" + "="*50)
+    # print("Summary of key fields:")
+    # print(f"Episode: {episode_data.get('episode_number')} - {episode_data.get('title')}")
+    # print(f"Slug: {episode_data.get('slug')}")
+    # print(f"Guest: {episode_data.get('guest', {}).get('name', 'No guest')}")
+    # print(f"Transcript available: {episode_data.get('transcript', {}).get('status')}")
+    # print(f"Key takeaways count: {len(episode_data.get('key_takeaways', []))}")
+    # print(f"Sponsors count: {len(episode_data.get('sponsors', []))}")
+    # print(f"Resources count: {len(episode_data.get('resources', []))}")
+    # print(f"Timestamps count: {len(episode_data.get('timestamps', []))}")   
+    # print("-------------------------------------------------------")
 
-    print(f"Transcript URL: {episode_data.get('transcript', {}).get('download_url')}")
-
-
+    # print(f"Transcript URL: {episode_data.get('transcript', {}).get('download_url')}")
 
 
 
