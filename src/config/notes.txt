@@ -1,0 +1,32 @@
+from llama_index.core.llms import ChatMessage
+
+messages = [
+    ChatMessage(role="user", content="Who is Paul Graham?"),
+]
+
+resp = llm.stream_chat(messages)
+for r in resp:
+    print(r.delta, end="") 
+
+
+
+from llama_index.llms.google_genai import GoogleGenAI
+
+llm = GoogleGenAI(model="gemini-2.0-flash")
+
+resp = await llm.astream_complete("Who is Paul Graham?")
+async for r in resp:
+    print(r.delta, end="") 
+
+
+VERTEX AI   
+from llama_index.llms.google_genai import GoogleGenAI
+
+# or set the parameters directly
+llm = GoogleGenAI(
+    model="gemini-2.0-flash",
+    vertexai_config={"project": "your-project-id", "location": "us-central1"},
+    # you should set the context window to the max input tokens for the model
+    context_window=200000,
+    max_tokens=512,
+)

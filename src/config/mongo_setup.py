@@ -71,9 +71,11 @@ async def get_async_mongo_client():
         return None
 
 # Create singleton client instance
-# client = get_mongo_client() 
+# client = get_mongo_client()  
+
+
 
 
 if __name__ == "__main__": 
-    asyncio.run(get_async_mongo_client())
+    # asyncio.run(get_async_mongo_client())
     logger.info("MongoDB client initialized and ready")

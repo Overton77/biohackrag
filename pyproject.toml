@@ -1,0 +1,22 @@
+[project]
+name = "biohackagent"
+version = "0.1.0"
+description = "BioHackAgent project"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.11,<3",
+  "pymongo>=4.11,<5",
+  "beanie>=2,<3",
+  "python-dotenv>=1.0.0",
+  "llama-index>=0.13.0",
+  "llama-index-core>=0.13.0",
+  "llama-index-llms-google-genai>=0.3.0",
+  "llama-index-embeddings-google-genai>=0.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+

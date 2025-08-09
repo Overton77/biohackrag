@@ -1,0 +1,52 @@
+**Claim 1:** Increasing metabolic demand in a high oxygen environment has unique metabolic benefits that can reduce autoimmune inflammation.
+*   **Who:** Dave Asprey
+*   **Evidence/Reasoning:** This is presented as a general principle and the basis for the discussion. Dave connects it to mitochondrial function and the cell danger response.
+*   **Attribution:** "Increasing metabolic demand in a very high oxygen environment has unique [00:00:05] metabolic benefits that turn off, in some cases, tons of autoimmune inflammation." [00:45:40]
+
+**Claim 2:** Every year past the age of 25, you lose 1% of your ability to utilize oxygen.
+*   **Who:** Brad Pitzele, citing research by Von Ardenne
+*   **Evidence/Reasoning:** Brad attributes this to inflammation in the capillaries, which reduces blood flow and oxygen delivery to cells.
+*   **Attribution:** "Every [00:00:10] year past the age of 25, you lose 1% of your ability [00:14:15] to utilize oxygen" [00:14:15]
+
+**Claim 3:** Inflammation is at the root of basically every chronic health condition.
+*   **Who:** Brad Pitzele
+*   **Evidence/Reasoning:** Brad states that low oxygen leads to inflammation, and inflammation leads to low oxygen, creating a cycle. He argues that flooding tissues with oxygen creates an anti-inflammatory effect.
+*   **Attribution:** "Inflammation is at the root of basically every chronic health condition we have out there." [00:00:20]
+
+**Claim 4:** Low oxygen in the body leads to inflammation, and inflammation leads to low oxygen.
+*   **Who:** Brad Pitzele
+*   **Evidence/Reasoning:** Brad states that this is a well-established relationship.
+*   **Attribution:** "There's a lot of [00:00:45] research out. There that shows anywhere in your body you have low [00:17:10] oxygen, you have inflammation, and anywhere you have [00:17:15] inflammation, you have low oxygen, you can't have one without the other." [00:17:10]
+
+**Claim 5:** Exercise with Oxygen Therapy (EWOT) saturates blood plasma with oxygen, allowing it to reach oxygen-deprived cells.
+*   **Who:** Brad Pitzele
+*   **Evidence/Reasoning:** Brad explains that red blood cells normally carry most oxygen, but during EWOT, the blood plasma becomes saturated and can penetrate capillaries blocked by inflammation.
+...
+*   **Who:** Brad Pitzele, attributing to Arthur Guyton
+*   **Evidence/Reasoning:** Brad states that this becomes a metabolic issue because when our metabolism goes from aerobic to anaerobic, then we don't have the energy we need.
+*   **Attribution:** "Basically the root of all disease is lack of oxygen." [00:47:15]
+
+Output is truncated. View as a scrollable element or open in a text editor. Adjust cell output settings...
+---------------------------------------------------------------------------
+WorkflowTimeoutError                      Traceback (most recent call last)
+Cell In[20], line 84
+     75         return MyStopEvent(all_summaries_generated=all_summaries_generated)
+     78 transcript_workflow = TranscriptWorkflow() 
+---> 84 await transcript_workflow.run() 
+
+File ~\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:385, in Task.__wakeup(self, future)
+    383 def __wakeup(self, future):
+    384     try:
+--> 385         future.result()
+    386     except BaseException as exc:
+    387         # This may also be a cancellation.
+    388         self.__step(exc)
+
+File c:\Users\Pinda\Proyectos\BioHackAgent\.venv\Lib\site-packages\workflows\workflow.py:486, in Workflow.run.<locals>._run_workflow()
+    483         ctx.write_event_to_stream(StopEvent())
+    485         msg = f"Operation timed out after {self._timeout} seconds"
+--> 486         raise WorkflowTimeoutError(msg)
+    488     result.set_result(ctx._retval)
+    489 except Exception as e:
+
+WorkflowTimeoutError: Operation timed out after 45.0 seconds
