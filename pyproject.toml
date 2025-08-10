@@ -12,6 +12,7 @@ dependencies = [
   "llama-index-core>=0.13.0",
   "llama-index-llms-google-genai>=0.3.0",
   "llama-index-embeddings-google-genai>=0.3.0",
+  "langchain-google-genai>=2.1.9",
 ]
 
 [build-system]

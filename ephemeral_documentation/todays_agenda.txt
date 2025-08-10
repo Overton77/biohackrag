@@ -1,0 +1,25 @@
+1. Retrieve the transcript text from the transcript_url in the episode_urls collection , clean the  
+html tags, trim extra whitespace and save as a langchain document 
+
+2. Set up the TranscriptIndexing LangGraph State. Set up the Transcript Indexing Agent. These will  
+be the google gemini ChatGoogleGenerativeAI 
+
+
+3. Create the summary - tool call chains. Instead of structured output we are going to use tool calling 
+. The agent will produce arguments that are going to be the fields of the Pydantic Model   
+
+4. Take the structured output of the Transcript Ingestion that includes the Products, Businesses, Claims, 
+Medical Treatments, Summaries, Persons (Biohackers) and store them in their respective mongo db collections with beanie 
+
+
+5. Set up the FastAPI Server and the Ingest_Transcripts POST route which accepts 0 or more episode numbers. 
+If no episodes are sent then we fetch all episodes that have the transcript_url set in the collection 
+
+
+5. Set up Prompt Versioning and Prompt Comparisons with a front end to see them. We will integrate a React or Next.js 
+front end at this point.  
+
+6. Take next steps to integrate medical databases, other channels and a deep research system to validate the entities in the collection 
+as well as enhance the information further. 
+
+
