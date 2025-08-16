@@ -1,4 +1,4 @@
-from src.ingestion.indexing.prompts.langsmith_client import langsmith_client  
+from ingestion.indexing.prompts.langsmith_client import langsmith_client  
 from typing import Dict   
 from langchain_core.prompts import PromptTemplate 
 

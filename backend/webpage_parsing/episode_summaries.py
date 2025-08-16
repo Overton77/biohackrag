@@ -3,8 +3,30 @@ import json
 import re
 from typing import Any, Dict, List, Optional  
 import asyncio 
-from src.config.mongo_setup import get_async_mongo_client
+from src.config.mongo_setup import get_async_mongo_client 
 import aiohttp
+
+
+def _remove_boilerplate_text(text: str) -> str:
+    """Remove recurring marketing boilerplate from text.
+
+    Specifically removes:
+    - Sentence starting with "Dave Asprey is a four-time New York Times bestselling author ... ."
+    - Sentence starting with "Episodes are released every Tuesday and Thursday ... ."
+    """
+    if not text:
+        return text
+
+    patterns = [
+        r"Dave\s+Asprey\s+is\s+a\s+four[-\s]?time\s+New\s+York\s+Times\s+bestselling\s+author[\s\S]*?\.",
+        r"Episodes\s+are\s+released\s+every\s+Tuesday\s+and\s+Thursday[\s\S]*?\.",
+    ]
+    cleaned = text
+    for pat in patterns:
+        cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
+    # Collapse whitespace after removals
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
 
 
 def _extract_time_and_title_from_li(li_tag) -> Dict[str, Optional[str]]:
@@ -260,6 +282,7 @@ def parse_major_summary(soup: BeautifulSoup) -> Dict[str, Any]:
         "bullets": [],
         "links": [],
         "free_resources": [],
+        "minor_summary": "",
     }
 
     if heading_tag is None:
@@ -274,7 +297,9 @@ def parse_major_summary(soup: BeautifulSoup) -> Dict[str, Any]:
                 continue
             if text.lower().startswith("sponsors:"):
                 break
-            result["paragraphs"].append(text)
+            cleaned_text = _remove_boilerplate_text(text)
+            if cleaned_text:
+                result["paragraphs"].append(cleaned_text)
             for a in el.find_all("a", href=True):
                 href = a.get("href")
                 if href:
@@ -292,6 +317,17 @@ def parse_major_summary(soup: BeautifulSoup) -> Dict[str, Any]:
                         result["links"].append(href)
                         if "cdn.shopify.com" in href:
                             result["free_resources"].append(href)
+
+    # Build a minor summary by combining paragraphs and bullets
+    minor_parts: List[str] = []
+    if result["paragraphs"]:
+        minor_parts.append(" ".join(result["paragraphs"]))
+    if result["bullets"]:
+        # Convert bullets into a single sentence-like string
+        bullet_sentence = "; ".join(result["bullets"]) 
+        if bullet_sentence:
+            minor_parts.append(f"Key points: {bullet_sentence}")
+    result["minor_summary"] = _normalize_text(" ".join(minor_parts))
 
     return result
 
@@ -349,56 +385,61 @@ def parse_sponsors(soup: BeautifulSoup) -> List[Dict[str, Any]]:
                 "discount_percent": discount,
             })
 
-    return sponsors
+    return sponsors  
 
 
-if __name__ == "__main__":  
-    # episode_url = "https://daveasprey.com/1301-ewot/" 
-    # asyncio.run(parse_and_update_timeline_for_episode_url(episode_url))  
-    soup = BeautifulSoup(open("C:/Users/Pinda/Proyectos/BioHackAgent/output/ep1333_aiohttp_20250805_144953.html", "r", encoding="utf-8").read(), "html.parser") 
-    major_summary = parse_major_summary(soup)
-    print(json.dumps(major_summary, ensure_ascii=False, indent=2)) 
-
-     
-
-    heading = major_summary["heading"] 
-    paragraphs = major_summary["paragraphs"] 
-    bullets = major_summary["bullets"] 
-    links = major_summary["links"] 
-    free_resources = major_summary["free_resources"]  
+async def store_episode_transcripts(): 
+    client = await init_beanie_with_pymongo()   
 
 
-    async def run_quick_mongo_update(episode_number: int): 
-        client = await get_async_mongo_client()  
-        if client is None: 
-            print("Failed to connect to MongoDB") 
-            return 
+    all_episodes = await Episode.find({"episode_page_url": {"$exists": True}}).to_list(length=None)   
 
-        db = client["biohack_agent"] 
-        collection = db["episode_urls"]  
 
-        episode_entry = await collection.find_one({"episode_number": episode_number}) 
-        if not episode_entry: 
-            print(f"Episode {episode_number} not found in MongoDB") 
-            return 
+    for episode in all_episodes: 
+        transcript_url = episode.get("transcript_url") 
 
-        episode_id = episode_entry["_id"]  
+        if not transcript_url: 
+            return  
 
-        major_summary = heading + "\n" + "\n".join(paragraphs) + "\n" + "\n".join(bullets) + "\n" + "\n".join(links) + "\n" + "\n".join(free_resources)  
+        html_content = await fetch_ 
+        
 
-        resource_link = free_resources[0]  
 
-        await collection.update_one(
-            {"_id": episode_id},
-            {"$set": {
-                "major_summary": major_summary,
-                "resource_link": resource_link
-            }}
-        ) 
+    
 
-        print(f"Updated episode {episode_number} in MongoDB")  
 
-    asyncio.run(run_quick_mongo_update(1333)) 
+
+
+
+if __name__ == "__main__":
+    # Load a sample HTML file and print timeline, resources, major summary (with minor_summary), and sponsors
+    html_path = "C:/Users/Pinda/Proyectos/BioHackAgent/backend/output/ep1333_aiohttp_20250805_144953.html"
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    parsed = parse_html_content(html_content)
+
+    print("Timeline:")
+    print(json.dumps(parsed.get("timeline", []), ensure_ascii=False, indent=2))
+
+    print("Resources:")
+    print(json.dumps(parsed.get("resources", []), ensure_ascii=False, indent=2))
+
+    print("Major Summary:")
+    print(json.dumps(parsed.get("major_summary", {}), ensure_ascii=False, indent=2))
+
+    print("Sponsors:")
+    print(json.dumps(parsed.get("sponsors", []), ensure_ascii=False, indent=2))  
+
+
+
+
+        
+
+
+
+
+
 
 
     

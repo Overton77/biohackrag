@@ -1,4 +1,4 @@
-from src.mongo_schemas import init_beanie_with_pymongo,  Person,  Channel, Episode  
+from mongo_schemas import init_beanie_with_pymongo,  Person,  Channel, Episode  
 import asyncio 
 
 

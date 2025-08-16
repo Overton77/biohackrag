@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
 import re
-from src.config.mongo_setup import get_async_mongo_client
+from config.mongo_setup import get_async_mongo_client
 
 
 async def fetch_episode_html(url: str) -> str:

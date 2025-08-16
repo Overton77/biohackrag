@@ -8,10 +8,10 @@ from pydantic import BaseModel, Field
 
 from llama_index.core.prompts import RichPromptTemplate 
 from llama_index.llms.google_genai import GoogleGenAI 
-from src.config.llm_setup import free_tier_model   
+from config.llm_setup import free_tier_model   
 from llama_index.core.agent.workflow import FunctionAgent  
 from llama_index.core import SimpleDirectoryReader    
-from src.mongo_schemas import init_beanie_with_pymongo, Transcript, Business, Product, Person, Claim, Treatment, CaseStudy, SuccessStory, Channel, Episode, BioMarker, Protocol, BioHack  
+from mongo_schemas import init_beanie_with_pymongo, Transcript, Business, Product, Person, Claim, Treatment, CaseStudy, SuccessStory, Channel, Episode, BioMarker, Protocol, BioHack  
 
 
 

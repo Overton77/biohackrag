@@ -60,7 +60,7 @@ async def clean_transcript(transcript_url: str) -> str:
         html_content = await fetch_url_async(transcript_url)
     except PermissionError:
         try:
-            from src.async_playwright_scraper import get_episode_html_playwright
+            from async_playwright_scraper import get_episode_html_playwright
         except Exception:
             raise
         html_content = await get_episode_html_playwright(transcript_url)

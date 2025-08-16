@@ -16,6 +16,7 @@ dependencies = [
   "langchain-google-vertexai>=2.0.28",
   "anthropic[vertex]>=0.62.0",
   "langsmith>=0.4.13",
+  "uvicorn>=0.35.0",
 ]
 
 [build-system]

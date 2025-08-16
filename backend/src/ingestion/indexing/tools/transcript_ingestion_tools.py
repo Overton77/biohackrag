@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from langchain_core.tools import tool
 
 # Import Pydantic output models and their LLM settings
-from src.mongo_schemas import (
+from mongo_schemas import (
     ProductOutput,
     
     TreatmentOutput,

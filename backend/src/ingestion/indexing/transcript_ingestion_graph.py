@@ -18,7 +18,7 @@ import json
 from dotenv import load_dotenv   
 from pydantic import BaseModel, Field   
 from langchain_core.tools import tool   
-from src.ingestion.indexing.prompts.transcript_prompts import (
+from ingestion.indexing.prompts.transcript_prompts import (
     product_information_structured_prompt,
     medical_treatment_structured_prompt,
     claims_made_structured_prompt,
@@ -30,14 +30,14 @@ from src.ingestion.indexing.prompts.transcript_prompts import (
     businesses_entities_summary_prompt,
     compounds_summary_prompt,
 ) 
-from src.ingestion.indexing.tools.transcript_ingestion_tools import (
+from ingestion.indexing.tools.transcript_ingestion_tools import (
     submit_product_information,
     submit_medical_treatment,
     submit_claims_made,
     submit_businesses_entities,
     submit_compound,
 )  
-from src.mongo_schemas import (
+from mongo_schemas import (
     ProductOutput,
     
     TreatmentOutput,

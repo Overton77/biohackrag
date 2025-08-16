@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Literal, Union, TYPE_CHECKING
 from datetime import datetime, UTC
 from beanie import Document, Link, init_beanie, BackLink
-from src.config.mongo_setup import get_async_mongo_client   
+from config.mongo_setup import get_async_mongo_client   
 import asyncio 
 from pymongo import AsyncMongoClient
 class TimeStamped(BaseModel):
@@ -31,6 +31,12 @@ class PersonOutput(BaseModel):
 # -------------------------
 
 class Person(BaseDoc):
+    """Person document stored in 'persons' collection
+    
+    Fields:
+        name (str): Name of the person
+        type (Optional[str]): Type of person e.g. "host", "guest", "doctor"
+    """
     
     name: str
     type: Optional[str] = None  # e.g., "host", "guest", "doctor", etc.
@@ -63,6 +69,23 @@ class TranscriptOutput(BaseModel):
 
 
 class Transcript(BaseDoc):
+    """Transcript document stored in 'transcripts' collection
+    
+    Fields:
+        episode (BackLink[Episode]): Back reference to Episode
+        product_summary (Optional[str]): Summary of products mentioned
+        business_summary (Optional[str]): Summary of businesses mentioned  
+        medical_treatment_summary (Optional[str]): Summary of medical treatments
+        claims_made_summary (Optional[str]): Summary of claims made
+        high_level_overview_summary (Optional[str]): High level overview
+        master_aggregate_summary (Optional[str]): Master summary
+        structured_product_information (Optional[Dict]): Structured product data
+        structured_medical_treatment (Optional[Dict]): Structured medical data
+        structured_high_level_overview (Optional[Dict]): Structured overview
+        structured_claims_made (Optional[Dict]): Structured claims
+        structured_businesses_entities (Optional[Dict]): Structured business data
+    """
+
     # BackLink from Episode.transcript (Episode -> Link[Transcript])
     episode: BackLink["Episode"] = Field(default=None, original_field="transcript")
 
@@ -72,7 +95,8 @@ class Transcript(BaseDoc):
     medical_treatment_summary: Optional[str] = None
     claims_made_summary: Optional[str] = None
     high_level_overview_summary: Optional[str] = None
-    master_aggregate_summary: Optional[str] = None
+    master_aggregate_summary: Optional[str] = None 
+    timeline: Optional[List[Dict[str, Any]]] = None  
 
     # Structured output from FunctionAgents
     structured_product_information: Optional[Dict[str, Any]] = None
@@ -97,6 +121,15 @@ class ResourceOutput(BaseModel):
 
 
 class Resource(BaseDoc):
+    """Resource document stored in 'resources' collection
+    
+    Fields:
+        url (str): URL of the resource
+        title (Optional[str]): Title of the resource
+        kind (Optional[str]): Type of resource e.g. "paper", "video", "blog"
+        meta (Dict): Additional metadata
+        episodes (BackLink[Episode]): Episodes referencing this resource
+    """
 
     url: str
     title: Optional[str] = None
@@ -121,6 +154,14 @@ class BioMarkerOutput(BaseModel):
 
 
 class BioMarker(BaseDoc):
+    """BioMarker document stored in 'biomarkers' collection
+    
+    Fields:
+        name (str): Name of the biomarker
+        age_range_optimal (Optional[Dict]): Optimal age range e.g. {"min": 20, "max": 40}
+        needs_lab (bool): Whether lab testing is required
+        affected_by (Optional[List[Link[Product]]]): Products affecting this biomarker
+    """
 
     name: str
     age_range_optimal: Optional[Dict[str, Any]] = None  # e.g., {"min": 20, "max": 40}
@@ -141,6 +182,14 @@ class ProtocolOutput(BaseModel):
 
 
 class Protocol(BaseDoc):
+    """Protocol document stored in 'protocols' collection
+    
+    Fields:
+        name (str): Name of the protocol
+        description (Optional[str]): Description of the protocol
+        biohacks (BackLink[BioHack]): BioHacks involved in this protocol
+        episodes (BackLink[Episode]): Episodes mentioning this protocol
+    """
 
     name: str
     description: Optional[str] = None
@@ -162,6 +211,16 @@ class BioHackOutput(BaseModel):
 
 
 class BioHack(BaseDoc):
+    """BioHack document stored in 'biohacks' collection
+    
+    Fields:
+        description (Optional[str]): Description of the biohack
+        effects (Optional[List[Link[BioMarker]]]): Biomarkers affected
+        involved_in (Optional[List[Link[Protocol]]]): Related protocols
+        products (Optional[List[Link[Product]]]): Related products
+        recommended_by (Optional[List[Link[Person]]]): People recommending this
+        episodes (BackLink[Episode]): Episodes mentioning this biohack
+    """
 
     description: Optional[str] = None
     effects: Optional[List[Link[BioMarker]]] = None                 # biomarkers affected by this biohack
@@ -191,6 +250,22 @@ class BusinessOutput(BaseModel):
 
 
 class Business(BaseDoc):
+    """Business document stored in 'businesses' collection
+    
+    Fields:
+        owner (Optional[Link[Person]]): Business owner
+        products (Optional[List[Link[Product]]]): Products by this business
+        biography (Optional[str]): Business biography
+        market_cap (Optional[float]): Market capitalization
+        mentioned_in (Optional[List[Link[Transcript]]]): Transcript mentions
+        canonical_name (Optional[str]): Official business name
+        aliases (Optional[List[str]]): Alternative names
+        role_or_relevance (Optional[str]): Business role/relevance
+        first_timestamp (Optional[str]): First mention timestamp
+        attribution_quotes (Optional[List[Dict]]): Attribution quotes
+        episodes (BackLink[Episode]): Episodes mentioning this business
+        product_backlinks (BackLink[Product]): Products linked to this business
+    """
 
     owner: Optional[Link[Person]] = None
     products: Optional[List[Link["Product"]]] = None
@@ -229,6 +304,22 @@ class ProductOutput(BaseModel):
 
 
 class Product(BaseDoc):
+    """Product document stored in 'products' collection
+    
+    Fields:
+        name (str): Product name
+        company (Optional[Link[Business]]): Company making the product
+        helps_with (Optional[List[Link[BioHack]]]): Related biohacks
+        cost (Optional[int]): Product cost
+        buy_links (Optional[List[str]]): Purchase links
+        description (Optional[str]): Product description
+        recommended_by (Optional[List[Link[Person]]]): People recommending
+        features (Optional[List[str]]): Product features
+        protocols (Optional[List[str]]): Related protocols
+        benefits_as_stated (Optional[List[str]]): Claimed benefits
+        attribution_quotes (Optional[List[Dict]]): Attribution quotes
+        episodes (BackLink[Episode]): Episodes mentioning this product
+    """
 
     name: str
     company: Optional[Link[Business]] = None            # (Business.products is the BackLink)
@@ -269,6 +360,21 @@ class TreatmentOutput(BaseModel):
 
 
 class Treatment(BaseDoc):
+    """Treatment document stored in 'treatments' collection
+    
+    Fields:
+        name (str): Treatment name
+        description (Optional[str]): Treatment description
+        products (Optional[List[Link[Product]]]): Related products
+        protocols (Optional[List[Link[Protocol]]]): Related protocols
+        biomarkers (Optional[List[Link[BioMarker]]]): Affected biomarkers
+        procedure_or_protocol (Optional[List[str]]): Treatment steps
+        outcomes_as_reported (Optional[List[str]]): Reported outcomes
+        risks_or_contraindications (Optional[List[str]]): Risks/contraindications
+        confidence (Optional[Literal]): Confidence level
+        attribution_quotes (Optional[List[Dict]]): Attribution quotes
+        episodes (BackLink[Episode]): Episodes mentioning this treatment
+    """
 
     name: str
     description: Optional[str] = None
@@ -300,6 +406,16 @@ class CaseStudyOutput(BaseModel):
 
 
 class CaseStudy(BaseDoc):
+    """CaseStudy document stored in 'case_studies' collection
+    
+    Fields:
+        title (str): Case study title
+        description (Optional[str]): Case study description
+        resources (Optional[List[Link[Resource]]]): Related resources
+        products (Optional[List[Link[Product]]]): Related products
+        businesses (Optional[List[Link[Business]]]): Related businesses
+        treatments (Optional[List[Link[Treatment]]]): Related treatments
+    """
 
     title: str
     description: Optional[str] = None
@@ -324,6 +440,18 @@ class SuccessStoryOutput(BaseModel):
 
 
 class SuccessStory(BaseDoc):
+    """SuccessStory document stored in 'success_stories' collection
+    
+    Fields:
+        title (str): Success story title
+        summary (Optional[str]): Success story summary
+        person (Optional[Link[Person]]): Person involved
+        product (Optional[Link[Product]]): Related product
+        business (Optional[Link[Business]]): Related business
+        resources (Optional[List[Link[Resource]]]): Related resources
+        case_study (Optional[Link[CaseStudy]]): Related case study
+        episodes (BackLink[Episode]): Episodes mentioning this story
+    """
 
     title: str
     summary: Optional[str] = None
@@ -353,6 +481,26 @@ class ClaimOutput(BaseModel):
 
 
 class Claim(BaseDoc):
+    """Claim document stored in 'claims' collection
+    
+    Fields:
+        text (str): Claim text
+        description (Optional[str]): Claim description
+        claim_type (Optional[Literal]): Type of claim
+        speaker (Optional[str]): Who made the claim
+        evidence_present_in_transcript (Optional[Literal]): Evidence presence
+        attribution_quotes (Optional[List[Dict]]): Attribution quotes
+        persons (Optional[List[Link[Person]]]): Related people
+        products (Optional[List[Link[Product]]]): Related products
+        treatments (Optional[List[Link[Treatment]]]): Related treatments
+        biomarkers (Optional[List[Link[BioMarker]]]): Related biomarkers
+        businesses (Optional[List[Link[Business]]]): Related businesses
+        protocols (Optional[List[Link[Protocol]]]): Related protocols
+        transcript (Optional[Link[Transcript]]): Source transcript
+        resources (Optional[List[Link[Resource]]]): Supporting resources
+        compounds (Optional[List[Link[Compound]]]): Related compounds
+        episodes (BackLink[Episode]): Episodes containing this claim
+    """
 
     text: str
     description: Optional[str] = None 
@@ -391,6 +539,17 @@ class CompoundOutput(BaseModel):
 
 
 class Compound(BaseDoc): 
+    """Compound document stored in 'compounds' collection
+    
+    Fields:
+        name (str): Compound name
+        description (Optional[str]): Compound description
+        products (Optional[List[Link[Product]]]): Related products
+        protocols (Optional[List[Link[Protocol]]]): Related protocols
+        claims (Optional[List[Link[Claim]]]): Related claims
+        type (Optional[Literal]): Compound type
+        benefits_as_stated (Optional[List[str]]): Stated benefits
+    """
 
     name: str   
     description: Optional[str] = None
@@ -424,6 +583,33 @@ class EpisodeOutput(BaseModel):
 
 
 class Episode(BaseDoc):
+    """Episode document stored in 'episodes' collection
+    
+    Fields:
+        channel (Link[Channel]): Parent channel
+        episode_page_url (Optional[str]): Episode webpage URL
+        transcript_url (Optional[str]): Transcript URL
+        webpage_summary (Optional[str]): Webpage summary
+        internal_summary (Optional[str]): Internal summary
+        release_date (Optional[datetime]): Release date
+        transcript (Optional[Link[Transcript]]): Episode transcript
+        guests (Optional[List[Link[Person]]]): Episode guests
+        webpage_resources (Optional[List[Link[Resource]]]): Resources
+        sponsors (Optional[List[Dict]]): Episode sponsors
+        learning_claims (Optional[List[str]]): Learning claims
+        purpose (Optional[str]): Episode purpose
+        participants (Optional[List[str]]): Participants
+        main_sections (Optional[List[Dict]]): Main sections
+        key_takeaways (Optional[List[str]]): Key takeaways
+        overview_attribution_quotes (Optional[List[Dict]]): Attribution quotes
+        products (Optional[List[Link[Product]]]): Related products
+        protocols (Optional[List[Link[Protocol]]]): Related protocols
+        biohacks (Optional[List[Link[BioHack]]]): Related biohacks
+        businesses (Optional[List[Link[Business]]]): Related businesses
+        claims (Optional[List[Link[Claim]]]): Related claims
+        treatments (Optional[List[Link[Treatment]]]): Related treatments
+        success_stories (Optional[List[Link[SuccessStory]]]): Success stories
+    """
 
     # Channel that this episode belongs to
     channel: Link["Channel"]
@@ -432,7 +618,8 @@ class Episode(BaseDoc):
     transcript_url: Optional[str] = None
     webpage_summary: Optional[str] = None
     internal_summary: Optional[str] = None
-    release_date: Optional[datetime] = None
+    release_date: Optional[datetime] = None 
+    episode_number: Optional[int] = None 
 
     # One transcript per episode (Link on Episode, BackLink on Transcript)
     transcript: Optional[Link[Transcript]] = None
@@ -440,8 +627,9 @@ class Episode(BaseDoc):
     guests: Optional[List[Link[Person]]] = None
 
     # Webpage-level extraction
-    webpage_claims: Optional[Dict[str, str]] = None  # {claim: description}
-    webpage_resources: Optional[List[Link[Resource]]] = None
+    webpage_resources: Optional[List[Link[Resource]]] = None 
+    sponsors: Optional[List[Dict[str, Any]]] = None  
+    learning_claims: Optional[List[str]] = None 
 
     # Structured output fields from HighLevelOverview
     purpose: Optional[str] = None
@@ -471,6 +659,13 @@ class ChannelOutput(BaseModel):
 
 
 class Channel(BaseDoc):
+    """Channel document stored in 'channels' collection
+    
+    Fields:
+        name (str): Channel name
+        owner (Optional[Link[Person]]): Channel owner
+        episodes (BackLink[Episode]): Channel episodes
+    """
 
     name: str
     owner: Optional[Link[Person]] = None
@@ -488,6 +683,14 @@ class AttributionQuoteOutput(BaseModel):
 
 
 class AttributionQuote(BaseDoc):  
+    """AttributionQuote document stored in 'attribution_quotes' collection
+    
+    Fields:
+        quote (Optional[str]): Quote text
+        timestamp (Optional[str]): Quote timestamp
+        person (Optional[Link[Person]]): Person quoted
+        transcript (Optional[Link[Transcript]]): Source transcript
+    """
     
     quote: Optional[str] = None 
     timestamp: Optional[str] = None  
@@ -508,6 +711,19 @@ class MedicalTreatmentOutput(BaseModel):
 
 
 class MedicalTreatment(BaseDoc):
+    """MedicalTreatment document stored in 'medical_treatments' collection
+    
+    Fields:
+        name (str): Treatment name
+        description (Optional[str]): Treatment description
+        cost (Optional[float]): Treatment cost
+        persons (Optional[List[Link[Person]]]): Related people
+        businesses (Optional[List[Link[Business]]]): Related businesses
+        products (Optional[List[Link[Product]]]): Related products
+        protocols (Optional[List[Link[Protocol]]]): Related protocols
+        biomarkers (Optional[List[Link[BioMarker]]]): Related biomarkers
+        success_stories (Optional[List[Link[SuccessStory]]]): Success stories
+    """
 
     name: str
     description: Optional[str] = None
