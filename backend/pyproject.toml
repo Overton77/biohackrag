@@ -17,6 +17,8 @@ dependencies = [
   "anthropic[vertex]>=0.62.0",
   "langsmith>=0.4.13",
   "uvicorn>=0.35.0",
+  "selenium>=4.35.0",
+  "webdriver-manager>=4.0.2",
 ]
 
 [build-system]

@@ -6,7 +6,13 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.chrome import ChromeDriverManager  
+# from config.mongo_setup import get_async_mongo_client   
+from pymongo import AsyncMongoClient  
+
+
+
+
 
 # Logging setup
 logging.basicConfig(
@@ -38,12 +44,9 @@ def save_to_csv(data, path=CSV_PATH):
         df.to_csv(path, index=False)
     logger.info(f"✅ Saved {len(data)} new episodes to {path}")
 
-def get_existing_links(path=CSV_PATH):
-    if os.path.exists(path):
-        return set(pd.read_csv(path)["episode_url"].tolist())
-    return set()
 
-if __name__ == "__main__":
+
+async def update_episodes_url_selenium(async_mongo_client: AsyncMongoClient):   
     driver = launch_browser()
     driver.get("https://www.daveasprey.com/podcast/")
     logger.info("✅ Navigated to Dave Asprey podcast page")
@@ -52,23 +55,52 @@ if __name__ == "__main__":
     driver.execute_script("window.scrollBy(0, 1880);")
     time.sleep(10)
 
-    seen_links = get_existing_links()
-    logger.info(f"Loaded {len(seen_links)} existing episode links")
+
+    seen_links = set()  
+    updated_episodes = set()   
+
+    db = async_mongo_client.biohack_agent 
+
+    collection = db.episodes 
+
+    most_recent_episode = await collection.find_one(sort=[("episode_number", -1)])  
+
+    if most_recent_episode: 
+        most_recent_episode_url = most_recent_episode.get("episode_page_url")  
+        print(most_recent_episode_url) 
+    else:
+        most_recent_episode_url = None
+
+    found_most_recent = False
 
     while True:
         # Collect all current episode links
         episode_links = driver.find_elements(By.CSS_SELECTOR, "h3.elementor-post__title a")
         new_links = []
         for link in episode_links:
-            href = link.get_attribute("href")
+            href = link.get_attribute("href") 
+            if most_recent_episode_url and href == most_recent_episode_url: 
+                found_most_recent = True 
+                return updated_episodes 
+                 
             if href and href not in seen_links:
                 seen_links.add(href)
-                new_links.append([href])
+                new_links.append([href])    
+                updated_episodes.add(href) 
+                await collection.insert_one({
+                    "episode_page_url": href,
+                })
 
         if new_links:
-            save_to_csv(new_links)
+            save_to_csv(new_links)  
+            
             print(f"✅ Collected {len(new_links)} new links this cycle")
             logger.info(f"Collected {len(new_links)} new links this cycle")
+
+        if found_most_recent:
+            print("✅ Reached most recent episode in DB. Stopping incremental scrape.")
+            logger.info("✅ Reached most recent episode in DB. Stopping incremental scrape.")
+            break
 
         # Check if Episode 1 is found
         if any("/1-" in url for url in seen_links):
@@ -104,4 +136,8 @@ if __name__ == "__main__":
         driver.execute_script("window.scrollBy(0, 1880);")
         time.sleep(8)  # Adjust if needed for slow load
 
-    print("✅ Done scraping. Check episodes.csv for results.")
+    print("✅ Done scraping. Check episodes.csv for results.") 
+
+
+if __name__ == "__main__":
+    print("Importing selenium job")

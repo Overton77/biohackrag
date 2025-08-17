@@ -3,6 +3,7 @@ import aiohttp
 from bs4 import BeautifulSoup
 import re
 from config.mongo_setup import get_async_mongo_client
+from pymongo import AsyncMongoClient 
 
 
 async def fetch_episode_html(url: str) -> str:
@@ -86,21 +87,18 @@ def extract_transcript_url_enhanced(html_content: str) -> str:
     return None
 
 
-async def get_episodes_missing_transcripts(limit: int = None):
+async def get_episodes_missing_transcripts(async_mongo_client: AsyncMongoClient, limit: int = None):
     """
     Get all episodes where transcript_url is null or missing
     
     Args:
         limit: Optional limit for number of episodes (if None, gets ALL episodes)
     """
-    client = await get_async_mongo_client()
-    if client is None:
-        print("❌ Failed to get MongoDB client")
-        return []
+    
     
     try:
-        db = client["biohack_agent"]
-        collection = db["episode_urls"]
+        db = async_mongo_client.biohack_agent
+        collection = db.episodes 
         
         # Find episodes where transcript_url is null, empty, or doesn't exist
         query = {
@@ -131,24 +129,19 @@ async def get_episodes_missing_transcripts(limit: int = None):
     except Exception as e:
         print(f"❌ Error finding episodes with missing transcripts: {e}")
         return []
-    finally:
-        if client:
-            await client.close()
 
 
-async def update_episode_transcript(episode_doc: dict, transcript_url: str):
+
+async def update_episode_transcript(async_mongo_client: AsyncMongoClient, episode_doc: dict, transcript_url: str):
     """Update episode document with transcript URL"""
     episode_id = episode_doc.get('_id')
     episode_number = episode_doc.get('episode_number', 'Unknown')
     
-    client = await get_async_mongo_client()
-    if client is None:
-        print(f"      ❌ Failed to get MongoDB client for episode {episode_number}")
-        return False
         
     try:
-        db = client["biohack_agent"]
-        collection = db["episode_urls"]
+        db = async_mongo_client.biohack_agent
+        collection = db.episodes 
+    
         
         # Update the specific episode document with the transcript URL
         result = await collection.update_one(
@@ -169,16 +162,13 @@ async def update_episode_transcript(episode_doc: dict, transcript_url: str):
     except Exception as e:
         print(f"      ❌ Error updating episode {episode_number}: {e}")
         return False
-    finally:
-        if client:
-            await client.close()
+        
 
-
-async def process_single_episode(episode_data: dict, episode_index: int, total_count: int):
+async def process_single_episode(async_mongo_client: AsyncMongoClient, episode_data: dict, episode_index: int, total_count: int):
     """Process a single episode to extract and store transcript URL"""
     
     episode_number = episode_data.get('episode_number', 'Unknown')
-    episode_url = episode_data.get('episode_url', '')
+    episode_url = episode_data.get('episode_page_url', '')
     
     print(f"\n🎯 Episode {episode_index + 1}/{total_count} - Episode #{episode_number}")
     print(f"   URL: {episode_url}")
@@ -201,7 +191,7 @@ async def process_single_episode(episode_data: dict, episode_index: int, total_c
         if transcript_url:
             # Update MongoDB document
             print("   💾 Updating MongoDB...")
-            success = await update_episode_transcript(episode_data, transcript_url)
+            success = await update_episode_transcript(async_mongo_client, episode_data, transcript_url)
             return success
         else:
             print("   ❌ No transcript URL found with any method")
@@ -212,7 +202,7 @@ async def process_single_episode(episode_data: dict, episode_index: int, total_c
         return False
 
 
-async def process_all_missing_transcripts(limit: int = None):
+async def process_all_missing_transcripts(async_mongo_client: AsyncMongoClient, limit: int = None):
     """
     Process ALL episodes with missing transcript URLs using enhanced extraction
     
@@ -227,7 +217,7 @@ async def process_all_missing_transcripts(limit: int = None):
     print("=" * 80)
     
     # Get all episodes with missing transcript URLs
-    episodes = await get_episodes_missing_transcripts(limit)
+    episodes = await get_episodes_missing_transcripts(async_mongo_client, limit)
     
     if not episodes:
         print("✅ No episodes with missing transcript URLs found!")
@@ -241,7 +231,7 @@ async def process_all_missing_transcripts(limit: int = None):
     print(f"\n📋 Processing {total_count} episodes...")
     
     for i, episode in enumerate(episodes):
-        success = await process_single_episode(episode, i, total_count)
+        success = await process_single_episode(async_mongo_client, episode, i, total_count)
         if success:
             success_count += 1
         
@@ -318,4 +308,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    print("Importing store_transcript_links")

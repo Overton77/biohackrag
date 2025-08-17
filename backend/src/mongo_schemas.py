@@ -16,20 +16,6 @@ class BaseDoc(Document, TimeStamped):
 
 
 
-
-# -------------------------
-# People (Pydantic output)
-# -------------------------
-
-class PersonOutput(BaseModel):
-    name: Optional[str] = None
-    type: Optional[str] = None
-
-
-# -------------------------
-# People (Beanie)
-# -------------------------
-
 class Person(BaseDoc):
     """Person document stored in 'persons' collection
     
@@ -52,20 +38,6 @@ class Person(BaseDoc):
 # Core domain docs
 # -------------------------
 
-# Pydantic: Transcript
-class TranscriptOutput(BaseModel):
-    product_summary: Optional[str] = None
-    business_summary: Optional[str] = None
-    medical_treatment_summary: Optional[str] = None
-    claims_made_summary: Optional[str] = None
-    high_level_overview_summary: Optional[str] = None
-    master_aggregate_summary: Optional[str] = None
-
-    structured_product_information: Optional[Dict[str, Any]] = None
-    structured_medical_treatment: Optional[Dict[str, Any]] = None
-    structured_high_level_overview: Optional[Dict[str, Any]] = None
-    structured_claims_made: Optional[Dict[str, Any]] = None
-    structured_businesses_entities: Optional[Dict[str, Any]] = None
 
 
 class Transcript(BaseDoc):
@@ -108,16 +80,6 @@ class Transcript(BaseDoc):
     class Settings:
         name = "transcripts"
 
-# LLM settings next to the document
-
-
-
-# Pydantic: Resource
-class ResourceOutput(BaseModel):
-    url: Optional[str] = None
-    title: Optional[str] = None
-    kind: Optional[str] = None
-    meta: Optional[Dict[str, Any]] = None
 
 
 class Resource(BaseDoc):
@@ -142,15 +104,6 @@ class Resource(BaseDoc):
     class Settings:
         name = "resources"
 
-# LLM settings next to the document
-
-
-
-# Pydantic: BioMarker
-class BioMarkerOutput(BaseModel):
-    name: Optional[str] = None
-    age_range_optimal: Optional[Dict[str, Any]] = None
-    needs_lab: Optional[bool] = None
 
 
 class BioMarker(BaseDoc):
@@ -171,14 +124,6 @@ class BioMarker(BaseDoc):
     class Settings:
         name = "biomarkers"
 
-# LLM settings next to the document
-
-
-
-# Pydantic: Protocol
-class ProtocolOutput(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
 
 
 class Protocol(BaseDoc):
@@ -200,14 +145,6 @@ class Protocol(BaseDoc):
 
     class Settings:
         name = "protocols"
-
-# LLM settings next to the document
-
-
-
-# Pydantic: BioHack
-class BioHackOutput(BaseModel):
-    description: Optional[str] = None
 
 
 class BioHack(BaseDoc):
@@ -238,15 +175,6 @@ class BioHack(BaseDoc):
 
 
 
-# Pydantic: Business
-class BusinessOutput(BaseModel):
-    biography: Optional[str] = None
-    market_cap: Optional[float] = None
-    canonical_name: Optional[str] = None
-    aliases: Optional[List[str]] = None
-    role_or_relevance: Optional[str] = None
-    first_timestamp: Optional[str] = None
-    attribution_quotes: Optional[List[Dict[str, Any]]] = None
 
 
 class Business(BaseDoc):
@@ -287,20 +215,6 @@ class Business(BaseDoc):
     class Settings:
         name = "businesses"
 
-# LLM settings next to the document
-
-
-
-# Pydantic: Product
-class ProductOutput(BaseModel):
-    name: Optional[str] = None
-    cost: Optional[int] = None
-    buy_links: Optional[List[str]] = None
-    description: Optional[str] = None
-    features: Optional[List[str]] = None
-    protocols: Optional[List[str]] = None
-    benefits_as_stated: Optional[List[str]] = None
-    attribution_quotes: Optional[List[Dict[str, Any]]] = None
 
 
 class Product(BaseDoc):
@@ -344,21 +258,6 @@ class Product(BaseDoc):
 # LLM settings next to the document
 
 
-
-
-
-
-# Pydantic: Treatment
-class TreatmentOutput(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    procedure_or_protocol: Optional[List[str]] = None
-    outcomes_as_reported: Optional[List[str]] = None
-    risks_or_contraindications: Optional[List[str]] = None
-    confidence: Optional[Literal["high", "medium", "low"]] = None
-    attribution_quotes: Optional[List[Dict[str, Any]]] = None
-
-
 class Treatment(BaseDoc):
     """Treatment document stored in 'treatments' collection
     
@@ -395,16 +294,6 @@ class Treatment(BaseDoc):
     class Settings:
         name = "treatments"
 
-# LLM settings next to the document
-
-
-
-# Pydantic: CaseStudy
-class CaseStudyOutput(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-
 class CaseStudy(BaseDoc):
     """CaseStudy document stored in 'case_studies' collection
     
@@ -429,14 +318,6 @@ class CaseStudy(BaseDoc):
     class Settings:
         name = "case_studies"
 
-# LLM settings next to the document
-
-
-
-# Pydantic: SuccessStory
-class SuccessStoryOutput(BaseModel):
-    title: Optional[str] = None
-    summary: Optional[str] = None
 
 
 class SuccessStory(BaseDoc):
@@ -466,18 +347,6 @@ class SuccessStory(BaseDoc):
 
     class Settings:
         name = "success_stories"
-
-# LLM settings next to the document
-
-
-# Pydantic: Claim
-class ClaimOutput(BaseModel):
-    text: Optional[str] = None
-    description: Optional[str] = None
-    claim_type: Optional[Literal["causal", "quantitative", "experiential", "other"]] = None
-    speaker: Optional[str] = None
-    evidence_present_in_transcript: Optional[Literal["yes", "no"]] = None
-    attribution_quotes: Optional[List[Dict[str, Any]]] = None
 
 
 class Claim(BaseDoc):
@@ -528,14 +397,7 @@ class Claim(BaseDoc):
     class Settings:
         name = "claims"
 
-# LLM settings next to the document
 
-
-# Pydantic: Compound
-class CompoundOutput(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    type: Optional[Literal["supplement", "food", "herb", "other"]] = None 
 
 
 class Compound(BaseDoc): 
@@ -561,25 +423,6 @@ class Compound(BaseDoc):
     class Settings: 
         name = "compounds"
 
-# LLM settings next to the document
-
-# -------------------------
-# Media hierarchy
-# -------------------------
-
-# Pydantic: Episode
-class EpisodeOutput(BaseModel):
-    episode_page_url: Optional[str] = None
-    transcript_url: Optional[str] = None
-    webpage_summary: Optional[str] = None
-    internal_summary: Optional[str] = None
-    release_date: Optional[datetime] = None
-    webpage_claims: Optional[Dict[str, str]] = None
-    purpose: Optional[str] = None
-    participants: Optional[List[str]] = None
-    main_sections: Optional[List[Dict[str, Any]]] = None
-    key_takeaways: Optional[List[str]] = None
-    overview_attribution_quotes: Optional[List[Dict[str, Any]]] = None
 
 
 class Episode(BaseDoc):
@@ -650,14 +493,6 @@ class Episode(BaseDoc):
     class Settings:
         name = "episodes"
 
-# LLM settings next to the document
-
-
-# Pydantic: Channel
-class ChannelOutput(BaseModel):
-    name: Optional[str] = None
-
-
 class Channel(BaseDoc):
     """Channel document stored in 'channels' collection
     
@@ -674,12 +509,6 @@ class Channel(BaseDoc):
     class Settings:
         name = "channels" 
 
-# LLM settings next to the document
-
-
-class AttributionQuoteOutput(BaseModel):  
-    quote: Optional[str] = None
-    timestamp: Optional[str] = None    
 
 
 class AttributionQuote(BaseDoc):  
@@ -699,15 +528,6 @@ class AttributionQuote(BaseDoc):
     class Settings: 
         name = "attribution_quotes"  
 
-# LLM settings next to the document
-
-
-
-
-class MedicalTreatmentOutput(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    cost: Optional[float] = None
 
 
 class MedicalTreatment(BaseDoc):

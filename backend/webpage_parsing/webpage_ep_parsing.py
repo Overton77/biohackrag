@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 from bs4 import BeautifulSoup  
 from bson import ObjectId 
-from src.mongo_schema_overwrite import init_beanie_with_pymongo, Episode, Transcript, Resource 
+from src.mongo_schema_overwrite import init_beanie_with_pymongo, Episode, Transcript, Resource
 
 # Reuse the robust parsers implemented elsewhere
 from .episode_summaries import (
@@ -13,6 +13,8 @@ from .episode_summaries import (
 )
 from src.store_transcript_links import extract_transcript_url_enhanced 
 import asyncio  
+from pymongo import AsyncMongoClient  
+import json 
 
 
 class WebpageEpisodeParse:
@@ -108,89 +110,163 @@ class WebpageEpisodeParse:
 
 
 
-
-async def main(): 
-    import json  
-    parser = WebpageEpisodeParse()
-    data = await parser.parse_all("https://daveasprey.com/1303-nayan-patel/") 
-    print("\n\n")
-    
-    print("=== FULL DATA ===")
-    print(json.dumps(data, indent=4))
-    
-    print("\n=== TIMELINE ===")
-    print(json.dumps(data.get("timeline"), indent=4))
-    
-    print("\n=== RESOURCES ===")
-    print(json.dumps(data.get("resources"), indent=4))
-    
-    print("\n=== MAJOR SUMMARY ===")
-    print(json.dumps(data.get("major_summary"), indent=4))
-    
-    print("\n=== SPONSORS ===")
-    print(json.dumps(data.get("sponsors"), indent=4))
-    
-    print("\n=== TRANSCRIPT LINK ===")
-    print(json.dumps(data.get("transcript_link"), indent=4))  
-
-    print("\n=== MINOR SUMMARY ===")
-    print(data.get("major_summary").get("minor_summary"))
-
-
-   
-async def _normalize_episode_webpage_resources(ep_coll, res_coll, episode_id: ObjectId) -> None:
-    """Fix episodes where `webpage_resources` mistakenly stores URLs instead of ObjectIds.
-
-    - For each string URL, create/find a Resource doc and replace with its ObjectId
-    - Leaves existing ObjectIds intact
+def _guess_title(text: Optional[str], url: str) -> Optional[str]:
     """
-    doc = await ep_coll.find_one({"_id": episode_id})
-    if not doc:
-        return
-    wr = doc.get("webpage_resources")
-    if not isinstance(wr, list):
-        return
+    Heuristic: if `text` is in the form 'Some Title : https://url', use the left side.
+    Fallback to hostname when title can't be inferred.
+    """
+    if text:
+        parts = text.split(" : ", 1)
+        if parts and parts[0].strip():
+            return parts[0].strip()
+    try:
+        host = urlparse(url).netloc
+        return host or None
+    except Exception:
+        return None
 
-    new_ids: List[ObjectId] = []
-    for item in wr:
-        if isinstance(item, ObjectId):
-            new_ids.append(item)
-        elif isinstance(item, str):
-            url = item
-            if not url:
+
+def _normalize_resource_items(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Accepts a parser payload and returns a normalized list of items like:
+      {"text": "... : https://example.com", "links": ["https://example.com"]}
+
+    Adjust the keys if your parser uses a different one (e.g., "webpage_resources").
+    """
+    if not data:
+        return []
+    maybe_lists = [
+        data.get("resources"),
+        data.get("webpage_resources"),
+        data.get("references"),
+    ]
+    for lst in maybe_lists:
+        if isinstance(lst, list):
+            return lst
+    return []
+
+
+async def _upsert_resources_from_items(
+    items: Iterable[Dict[str, Any]]
+) -> List["Resource"]:
+    """
+    Build/return Resource documents by URL (dedup by URL).
+    If a Resource already exists, keep it; if new, create it.
+    Update missing titles when we can infer one.
+    """
+    # Collect candidate URLs with titles
+    url_to_title: Dict[str, Optional[str]] = {}
+    for it in items or []:
+        links = it.get("links") or []
+        if not links:
+            continue
+        url = links[0]
+        if not url:
+            continue
+        if url in url_to_title:
+            continue
+        url_to_title[url] = _guess_title(it.get("text"), url)
+
+    if not url_to_title:
+        return []
+
+    urls = list(url_to_title.keys())
+
+    # Prefetch existing in one query
+    existing = await Resource.find(Resource.url.in_(urls)).to_list()
+    existing_by_url = {r.url: r for r in existing}
+
+    result: List[Resource] = []
+
+    # Create new or update missing title
+    for url in urls:
+        title = url_to_title[url]
+        if url in existing_by_url:
+            res = existing_by_url[url]
+            if title and not res.title:
+                res.title = title
+                await res.save()
+            result.append(res)
+        else:
+            res = Resource(url=url, title=title)
+            await res.insert()
+            result.append(res)
+
+    return result
+
+
+
+
+
+async def update_all_episodes(_: Any) -> None:
+    """
+    Streams episodes that have an episode_page_url.
+    For each episode:
+      - parse page
+      - update Episode.webpage_summary (from minor_summary)
+      - update Episode.sponsors (array of objects)
+      - upsert/link Resource docs from parsed resource items
+      - update Transcript.timeline (array of objects)
+    """
+    parser = WebpageEpisodeParse()
+
+    # Stream instead of materializing the whole list.
+    # fetch_links=True so `episode.transcript` is the populated Transcript doc (if present)
+    async for episode in Episode.find(Episode.episode_page_url.exists(True), fetch_links=True):
+        try:
+            # Require a transcript link/doc to update its timeline
+            if not episode.transcript:
                 continue
-            existing = await res_coll.find_one({"url": url})
-            if existing:
-                new_ids.append(existing["_id"])
-            else:
-                ins = await res_coll.insert_one({"url": url})
-                new_ids.append(ins.inserted_id)
-        elif isinstance(item, dict):
-            url = item.get("url")
-            if not url:
+
+            ep_url = episode.episode_page_url
+            if not ep_url:
                 continue
-            existing = await res_coll.find_one({"url": url})
-            if existing:
-                new_ids.append(existing["_id"])
-            else:
-                ins = await res_coll.insert_one({"url": url})
-                new_ids.append(ins.inserted_id)
 
-    await ep_coll.update_one({"_id": episode_id}, {"$set": {"webpage_resources": new_ids}})
+            data = await parser.parse_all(ep_url)
+            if not data:
+                continue
+
+            # ---- extract parsed fields safely
+            major = data.get("major_summary") or {}
+            minor_summary: Optional[str] = major.get("minor_summary")
+
+            sponsors: List[Dict[str, Any]] = data.get("sponsors") or []
+            timeline: List[Dict[str, Any]] = data.get("timeline") or []
+
+            resource_items = _normalize_resource_items(data)
+            resources = await _upsert_resources_from_items(resource_items)
+
+            # ---- update Episode
+            if minor_summary:
+                # per your note: put minor_summary into webpage_summary (you'll rewire later)
+                episode.webpage_summary = minor_summary
+
+            # sponsors is an array of objects
+            if sponsors:
+                episode.sponsors = sponsors
+
+            # link Resource docs (your field allows Link[Resource] or legacy str)
+            if resources:
+                episode.webpage_resources = resources  # type: ignore[assignment]
+
+            await episode.save()
+
+            # ---- update Transcript timeline
+            tr: Optional[Transcript] = episode.transcript  # already populated via fetch_links=True
+            if tr and timeline:
+                tr.timeline = timeline
+                await tr.save()
+
+        except Exception as e:
+            # Keep the loop going; you might also want to log this or push to an "errors" array on the episode
+            print(f"[update_all_episodes] Failed for episode {getattr(episode, 'id', None)}: {e}")
+            continue
 
 
 
-async def upsert_ingestion() -> None:
-    # Initialize ODM and raw collections (for data normalization)
-    client = await init_beanie_with_pymongo()  
 
-
-     
-
-
-
-
-if __name__ == "__main__":
-    asyncio.run(main()) 
+if __name__ == "__main__": 
+    print("Importing webpage_ep_parsing.py")
+    # asyncio.run(main()) 
 
     # asyncio.run(ingest_every_episode()) 

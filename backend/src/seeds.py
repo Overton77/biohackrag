@@ -1,4 +1,4 @@
-from mongo_schemas import init_beanie_with_pymongo,  Person,  Channel, Episode  
+from src.mongo_schema_overwrite import init_beanie_with_pymongo, Person, Channel, Episode  
 import asyncio 
 
 

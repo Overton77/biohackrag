@@ -11,7 +11,7 @@ from llama_index.llms.google_genai import GoogleGenAI
 from config.llm_setup import free_tier_model   
 from llama_index.core.agent.workflow import FunctionAgent  
 from llama_index.core import SimpleDirectoryReader    
-from mongo_schemas import init_beanie_with_pymongo, Transcript, Business, Product, Person, Claim, Treatment, CaseStudy, SuccessStory, Channel, Episode, BioMarker, Protocol, BioHack  
+from mongo_schema_overwrite import init_beanie_with_pymongo, Transcript, Business, Product, Person, Claim, Treatment, CaseStudy, SuccessStory, Channel, Episode, BioMarker, Protocol, BioHack  
 
 
 

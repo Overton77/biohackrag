@@ -71,4 +71,4 @@ output/
 
 /webpage_parsing/ 
 
-data_exploration/*  
+/backend/data_exploration/*

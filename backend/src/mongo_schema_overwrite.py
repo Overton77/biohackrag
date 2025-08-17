@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field 
+from pydantic import BaseModel, Field, ConfigDict 
 from typing import List, Optional, Dict, Any, Literal, Union, TYPE_CHECKING
 from datetime import datetime, UTC
 from beanie import Document, Link, init_beanie, BackLink
@@ -18,6 +18,8 @@ class BaseDoc(Document, TimeStamped):
     class Settings:
         # Keep this off by default for less overhead; enable per-model if needed.
         use_state_management = False
+    # Ignore unknown/legacy fields from existing documents in the DB
+    model_config = ConfigDict(extra="ignore")
 
 
 # ========= Enums (finite fields kept tidy) =========
@@ -95,21 +97,6 @@ class Person(BaseDoc):
         name = "persons"
 
 
-class PersonOutput(BaseModel):
-    """Pydantic output model for Person document.
-    
-    Fields:
-        name (str): Person's name
-        kind (Optional[PersonKind]): Type of person
-    """
-    name: str = None
-    kind: Optional[PersonKind] = None
-
-
-# ==================================================
-# Transcript (consolidated structured block)
-# ==================================================
-
 class TranscriptStructured(BaseModel): 
     """Structured block of transcript data produced by LLM.
     
@@ -148,7 +135,7 @@ class Transcript(BaseDoc):
     claims_made_summary: Optional[str] = None
     high_level_overview_summary: Optional[str] = None
     master_aggregate_summary: Optional[str] = None
-    timeline: List[Dict[str, Any]] = Field(default_factory=list) 
+    timeline: Optional[List[Dict[str, Any]]] = None 
     full_transcript: Optional[str] = None 
 
     structured: Optional[TranscriptStructured] = None
@@ -156,26 +143,6 @@ class Transcript(BaseDoc):
     class Settings:
         name = "transcripts"
 
-
-class TranscriptOutput(BaseModel):
-    """Pydantic output model for Transcript document.
-    
-    Fields:
-        product_summary (Optional[str]): Summary of products
-        business_summary (Optional[str]): Summary of businesses
-        medical_treatment_summary (Optional[str]): Summary of medical treatments
-        claims_made_summary (Optional[str]): Summary of claims
-        high_level_overview_summary (Optional[str]): High-level overview
-        master_aggregate_summary (Optional[str]): Aggregate summary
-        structured (Optional[TranscriptStructured]): Structured data
-    """
-    product_summary: Optional[str] = None
-    business_summary: Optional[str] = None
-    medical_treatment_summary: Optional[str] = None
-    claims_made_summary: Optional[str] = None
-    high_level_overview_summary: Optional[str] = None
-    master_aggregate_summary: Optional[str] = None
-    structured: Optional[TranscriptStructured] = None
 
 
 # ==================================================
@@ -202,10 +169,6 @@ class Resource(BaseDoc):
 
 
 
-# ==================================================
-# BioMarker
-# ==================================================
-
 class BioMarker(BaseDoc):
     """BioMarker document stored in 'biomarkers' collection.
     
@@ -224,25 +187,6 @@ class BioMarker(BaseDoc):
         name = "biomarkers"
 
 
-class BioMarkerOutput(BaseModel):
-    """Pydantic output model for BioMarker document.
-    
-    Fields:
-        name (Optional[str]): Biomarker name
-        description (Optional[str]): Description
-        age_range_optimal (Optional[Dict]): Optimal age range
-        needs_lab (Optional[bool]): Lab testing requirement
-    """
-    name: Optional[str] = None  
-    description: Optional[str] = None  
-    age_range_optimal: Optional[Dict[str, Any]] = None
-    needs_lab: Optional[bool] = None
-
-
-# ==================================================
-# Protocol
-# ==================================================
-
 class Protocol(BaseDoc):
     """Protocol document stored in 'protocols' collection.
     
@@ -259,20 +203,6 @@ class Protocol(BaseDoc):
         name = "protocols"
 
 
-class ProtocolOutput(BaseModel):
-    """Pydantic output model for Protocol document.
-    
-    Fields:
-        name (Optional[str]): Protocol name
-        description (Optional[str]): Description
-    """
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-
-# ==================================================
-# BioHack
-# ==================================================
 
 class BioHack(BaseDoc):
     """BioHack document stored in 'biohacks' collection.
@@ -288,20 +218,6 @@ class BioHack(BaseDoc):
         name = "biohacks"
 
 
-class BioHackOutput(BaseModel):
-    """Pydantic output model for BioHack document.
-    
-    Fields:
-        name (Optional[str]): BioHack name
-        description (Optional[str]): Description
-    """
-    name: Optional[str] = None 
-    description: Optional[str] = None
-
-
-# ==================================================
-# Business
-# ==================================================
 
 class Business(BaseDoc):
     """Business document stored in 'businesses' collection.
@@ -330,28 +246,6 @@ class Business(BaseDoc):
         name = "businesses"
 
 
-class BusinessOutput(BaseModel):
-    """Pydantic output model for Business document.
-    
-    Fields:
-        biography (Optional[str]): Business biography
-        market_cap (Optional[float]): Market capitalization
-        canonical_name (Optional[str]): Official name
-        aliases (List[str]): Alternative names
-        role_or_relevance (Optional[str]): Role/relevance
-        first_timestamp (Optional[str]): First mention
-    """
-    biography: Optional[str] = None
-    market_cap: Optional[float] = None
-    canonical_name: Optional[str] = None
-    aliases: List[str] = Field(default_factory=list)
-    role_or_relevance: Optional[str] = None
-    first_timestamp: Optional[str] = None
-
-
-# ==================================================
-# Product
-# ==================================================
 
 class Product(BaseDoc):
     """Product document stored in 'products' collection.
@@ -386,30 +280,7 @@ class Product(BaseDoc):
         name = "products"
 
 
-class ProductOutput(BaseModel):
-    """Pydantic output model for Product document.
-    
-    Fields:
-        name (Optional[str]): Product name
-        cost (Optional[int]): Cost
-        buy_links (List[str]): Purchase links
-        description (Optional[str]): Description
-        features (List[str]): Features
-        protocols (List[str]): Protocols
-        benefits_as_stated (List[str]): Benefits
-    """
-    name: Optional[str] = None
-    cost: Optional[int] = None
-    buy_links: List[str] = Field(default_factory=list)
-    description: Optional[str] = None
-    features: List[str] = Field(default_factory=list)
-    protocols: List[str] = Field(default_factory=list)
-    benefits_as_stated: List[str] = Field(default_factory=list)
 
-
-# ==================================================
-# Treatment
-# ==================================================
 
 class Treatment(BaseDoc):
     """Treatment document stored in 'treatments' collection.
@@ -438,28 +309,6 @@ class Treatment(BaseDoc):
         name = "treatments"
 
 
-class TreatmentOutput(BaseModel):
-    """Pydantic output model for Treatment document.
-    
-    Fields:
-        name (Optional[str]): Treatment name
-        description (Optional[str]): Description
-        procedure_or_protocol (List[str]): Procedure
-        outcomes_as_reported (List[str]): Outcomes
-        risks_or_contraindications (List[str]): Risks
-        confidence (Optional[Confidence]): Confidence
-    """
-    name: Optional[str] = None
-    description: Optional[str] = None
-    procedure_or_protocol: List[str] = Field(default_factory=list)
-    outcomes_as_reported: List[str] = Field(default_factory=list)
-    risks_or_contraindications: List[str] = Field(default_factory=list)
-    confidence: Optional[Confidence] = None
-
-
-# ==================================================
-# CaseStudy
-# ==================================================
 
 class CaseStudy(BaseDoc):
     """CaseStudy document stored in 'case_studies' collection.
@@ -479,24 +328,6 @@ class CaseStudy(BaseDoc):
         name = "case_studies"
 
 
-class CaseStudyOutput(BaseModel):
-    """Pydantic output model for CaseStudy document.
-    
-    Fields:
-        title (Optional[str]): Case study title
-        description (Optional[str]): Description
-        resources_unlinked (Optional[List[str]]): Resources
-        url (Optional[str]): URL
-    """
-    title: Optional[str] = None
-    description: Optional[str] = None  
-    resources_unlinked: Optional[List[str]] = None   
-    url: Optional[str] = None  
-
-
-# ==================================================
-# SuccessStory
-# ==================================================
 
 class SuccessStory(BaseDoc):
     """SuccessStory document stored in 'success_stories' collection.
@@ -518,23 +349,6 @@ class SuccessStory(BaseDoc):
     class Settings:
         name = "success_stories"
 
-
-class SuccessStoryOutput(BaseModel):
-    """Pydantic output model for SuccessStory document.
-    
-    Fields:
-        title (Optional[str]): Story title
-        summary (Optional[str]): Summary
-        url (Optional[str]): URL
-    """
-    title: Optional[str] = None
-    summary: Optional[str] = None 
-    url: Optional[str] = None  
-
-
-# ==================================================
-# Claim
-# ==================================================
 
 class Claim(BaseDoc):
     """Claim document stored in 'claims' collection.
@@ -563,26 +377,6 @@ class Claim(BaseDoc):
         name = "claims"
 
 
-class ClaimOutput(BaseModel):
-    """Pydantic output model for Claim document.
-    
-    Fields:
-        text (Optional[str]): Claim text
-        description (Optional[str]): Description
-        claim_type (Optional[ClaimType]): Type
-        speaker (Optional[str]): Speaker
-        evidence_present_in_transcript (Optional[Literal]): Evidence
-    """
-    text: Optional[str] = None
-    description: Optional[str] = None
-    claim_type: Optional[ClaimType] = None
-    speaker: Optional[str] = None
-    evidence_present_in_transcript: Optional[Literal["yes", "no"]] = None
-
-
-# ==================================================
-# Compound
-# ==================================================
 
 class Compound(BaseDoc):
     """Compound document stored in 'compounds' collection.
@@ -607,24 +401,7 @@ class Compound(BaseDoc):
         name = "compounds"
 
 
-class CompoundOutput(BaseModel):
-    """Pydantic output model for Compound document.
-    
-    Fields:
-        name (Optional[str]): Compound name
-        description (Optional[str]): Description
-        type (Optional[CompoundType]): Type
-        benefits_as_stated (List[str]): Benefits
-    """
-    name: Optional[str] = None
-    description: Optional[str] = None
-    type: Optional[CompoundType] = None
-    benefits_as_stated: List[str] = Field(default_factory=list)
 
-
-# ==================================================
-# Media hierarchy: Channel & Episode
-# ==================================================
 
 class Channel(BaseDoc):
     """Channel document stored in 'channels' collection.
@@ -637,10 +414,7 @@ class Channel(BaseDoc):
     name: str
     owner: Optional[Link[Person]] = None
 
-    episodes: List[BackLink["Episode"]] = Field(
-        default_factory=list,
-        json_schema_extra={"original_field": "channel"},
-    )
+    episodes: List[BackLink["Episode"]] = Field(default_factory=list, original_field="channel")
 
     class Settings:
         name = "channels"
@@ -691,7 +465,7 @@ class Episode(BaseDoc):
         overview_attribution_quotes (List[Dict]): Attribution quotes
         mentions (Optional[EpisodeMentions]): All mentions
     """
-    channel: Link[Channel]  # owner side of Channel.episodes
+    channel: Optional[Link[Channel]] = None  # allow missing legacy data
 
     episode_page_url: Optional[str] = None
     transcript_url: Optional[str] = None
@@ -701,16 +475,18 @@ class Episode(BaseDoc):
     episode_number: Optional[int] = None
 
     transcript: Optional[Link[Transcript]] = None
-    guests: List[Link[Person]] = Field(default_factory=list)
+    guests: Optional[List[Link[Person]]] = None
 
-    sponsors: List[Dict[str, Any]] = Field(default_factory=list)
-    learning_claims: List[str] = Field(default_factory=list)
+    sponsors: Optional[List[Dict[str, Any]]] = None
+    # Accept legacy string URLs or proper Link[Resource]
+    webpage_resources: Optional[List[Union[Link[Resource], str]]] = None
+    learning_claims: Optional[List[str]] = None
 
     purpose: Optional[str] = None
-    participants: List[str] = Field(default_factory=list)
-    main_sections: List[Dict[str, Any]] = Field(default_factory=list)
-    key_takeaways: List[str] = Field(default_factory=list)
-    overview_attribution_quotes: List[Dict[str, Any]] = Field(default_factory=list)
+    participants: Optional[List[str]] = None
+    main_sections: Optional[List[Dict[str, Any]]] = None
+    key_takeaways: Optional[List[str]] = None
+    overview_attribution_quotes: Optional[List[Dict[str, Any]]] = None
 
     mentions: Optional[EpisodeMentions] = None 
 
@@ -718,42 +494,7 @@ class Episode(BaseDoc):
         name = "episodes"
 
 
-class EpisodeOutput(BaseModel):
-    """Pydantic output model for Episode document.
-    
-    Fields:
-        episode_page_url (Optional[str]): Page URL
-        transcript_url (Optional[str]): Transcript URL
-        webpage_summary (Optional[str]): Webpage summary
-        internal_summary (Optional[str]): Internal summary
-        release_date (Optional[datetime]): Release date
-        episode_number (Optional[int]): Episode number
-        sponsors (List[Dict]): Sponsors
-        learning_claims (List[str]): Learning claims
-        purpose (Optional[str]): Purpose
-        participants (List[str]): Participants
-        main_sections (List[Dict]): Sections
-        key_takeaways (List[str]): Takeaways
-        overview_attribution_quotes (List[Dict]): Quotes
-    """
-    episode_page_url: Optional[str] = None
-    transcript_url: Optional[str] = None
-    webpage_summary: Optional[str] = None
-    internal_summary: Optional[str] = None
-    release_date: Optional[datetime] = None
-    episode_number: Optional[int] = None
-    sponsors: List[Dict[str, Any]] = Field(default_factory=list)
-    learning_claims: List[str] = Field(default_factory=list)
-    purpose: Optional[str] = None
-    participants: List[str] = Field(default_factory=list)
-    main_sections: List[Dict[str, Any]] = Field(default_factory=list)
-    key_takeaways: List[str] = Field(default_factory=list)
-    overview_attribution_quotes: List[Dict[str, Any]] = Field(default_factory=list)
 
-
-# ==================================================
-# AttributionQuote
-# ==================================================
 
 class AttributionQuote(BaseDoc):
     """AttributionQuote document stored in 'attribution_quotes' collection.
@@ -773,26 +514,6 @@ class AttributionQuote(BaseDoc):
         name = "attribution_quotes"
 
 
-class AttributionQuoteOutput(BaseModel):
-    """Pydantic output model for AttributionQuote document.
-    
-    Fields:
-        quote (Optional[str]): Quote text
-        timestamp (Optional[str]): Timestamp
-        person (Optional[str]): Person
-        reference (Optional[str]): Reference
-    """
-    quote: Optional[str] = None
-    timestamp: Optional[str] = None 
-    person: Optional[str] = None   
-    reference: Optional[str] = None 
-
-
-
-
-# ==================================================
-# MedicalTreatment
-# ==================================================
 
 class MedicalTreatment(BaseDoc):
     """MedicalTreatment document stored in 'medical_treatments' collection.
@@ -817,17 +538,6 @@ class MedicalTreatment(BaseDoc):
         name = "medical_treatments"
 
 
-class MedicalTreatmentOutput(BaseModel):
-    """Pydantic output model for MedicalTreatment document.
-    
-    Fields:
-        name (Optional[str]): Treatment name
-        description (Optional[str]): Description
-        cost (Optional[float]): Cost
-    """
-    name: Optional[str] = None
-    description: Optional[str] = None
-    cost: Optional[float] = None
 
 
 async def init_beanie_with_pymongo() -> AsyncMongoClient:
@@ -910,5 +620,24 @@ def update_beanie_from_pydantic(
 
     
 
-if __name__ == "__main__":  
-    print("Importing mongo schemas")
+async def _test_simple_queries() -> None:
+    """Basic smoke test: init Beanie, fetch Episodes and Transcripts."""
+    client = await init_beanie_with_pymongo()
+
+    episodes = await Episode.find().sort("-episode_number").limit(10).to_list()
+    print(f"Episodes fetched: {len(episodes)}")
+    for ep in episodes:
+        print({
+            "_id": str(getattr(ep, "id", "")),
+            "episode_number": ep.episode_number,
+            "has_channel": ep.channel is not None,
+        })
+
+    transcripts = await Transcript.find().limit(10).to_list()
+    print(f"Transcripts fetched: {len(transcripts)}")
+
+    await client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(_test_simple_queries())

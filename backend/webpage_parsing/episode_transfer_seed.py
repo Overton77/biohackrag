@@ -1,4 +1,4 @@
-from src.mongo_schemas import init_beanie_with_pymongo, Episode, Channel    
+from src.mongo_schema_overwrite import init_beanie_with_pymongo, Episode, Channel    
 from src.config.mongo_setup import get_async_mongo_client 
 import asyncio 
 from bson import ObjectId 
