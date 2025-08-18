@@ -2,3 +2,103 @@ personal_notes/
 
 reports/  
 
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+
+
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+dist/
+.next/static/
+.next/cache/
+.turbo/
+**/.turbo/
+.vercel/
+**/.vercel/
+# envs
+.env
+.env.*        # keep .env.example committed
+!.env.example
+# logs & coverage
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+coverage/
+.eslintcache
+.stylelintcache
+
+# --- Python (backend) ---
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- IDE/editors ---
+.vscode/
+.idea/
+.DS_Store 
+
+
+client_secret_490654219742-i9ea6bruh70731fgpi810hsf7hb1g47p.apps.googleusercontent.com.json
+# Google Cloud
+*.gcloudignore
+.gcloud/
+app.yaml
+.env
+credentials.json
+client_secrets.json
+*-credentials.json
+service-account.json
+.google-cloud-sdk/
+video_tests.py  
+
+
+selenium_cheat_sheet.md  
+
+Bell_credentials.csv 
+
+bio_tests.log 
+
+bio_tests.py 
+
+least_permissions_policy.json  
+
+podcast_scraper.log 
+
+
+sorted_episodes.csv  
+
+webpage.html  
+
+load_more_button.log 
+
+load_more_debug.log 
+
+
+personal_notes/  
+
+reports/  
+
+episodes.csv  
+
+detailed_summary_test.py 
+
+
+
+output/ 
+
+/webpage_parsing/ 
+
+/backend/data_exploration/*
