@@ -1,0 +1,163 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+---
+
+description: Transcript ingestion workflow for BioHackAgent — files, responsibilities, data flow, and integration points
+alwaysApply: false
+
+---
+
+## Transcript Ingestion — System Guide
+
+This rule documents the end‑to‑end transcript ingestion flow, the source files that implement each stage, the data contracts, and how components integrate. Use it as the single source of truth to understand how episode pages become transcripts, summaries, entities, and searchable vectors.
+
+### Core Data and Infrastructure
+
+- [backend/src/mongo_schema_overwrite.py](mdc:backend/src/mongo_schema_overwrite.py)
+  - Beanie document models for MongoDB collections (e.g., episodes, transcripts, resources, summaries/entities). Treat these as the canonical schemas and persistence contracts.
+- [backend/src/config/mongo_setup.py](mdc:backend/src/config/mongo_setup.py)
+  - Async Mongo client setup (PyMongo AsyncClient) shared by ingestion scripts and services. All DB reads/writes should go through this configuration to keep a single connection strategy.
+
+### Files and Responsibilities (Quick Map)
+
+- Episode discovery (Selenium)
+
+  - [backend/scraping_ops/find_episodes_selenium.py](mdc:backend/scraping_ops/find_episodes_selenium.py)
+    - Navigates the podcast listing, clicks “view more,” loads additional cards, and collects episode page links by reading the `<a>` tags on each card.
+    - Note: This script is legacy and due for refresh. When revisiting, it should consult MongoDB to load the most recent stored episode and STOP as soon as it encounters that episode during scraping.
+
+- Per‑episode webpage parsing (HTML)
+
+  - [backend/src/store_transcript_links.py](mdc:backend/src/store_transcript_links.py)
+    - For each discovered episode page, finds and stores the transcript link. Needs formal integration with the Beanie/Mongo interface for robust upserts and status tracking.
+  - [backend/webpage_parsing/webpage_ep_parsing.py](mdc:backend/webpage_parsing/webpage_ep_parsing.py)
+    - Visits each episode page and extracts mini‑summaries, timeline, and resources. Updates the `resources`, `transcripts`, and `episodes` collections. Should be composed with `store_transcript_links` to avoid duplicated crawling and to guarantee consistent upserts.
+
+- Transcript ingestion (LLM workflows)
+
+  - [backend/src/ingestion/indexing/transcript_ingestion_graph.py](mdc:backend/src/ingestion/indexing/transcript_ingestion_graph.py)
+    - LangGraph orchestration for multi‑step LLM pipelines.
+  - [backend/src/ingestion/indexing/transcript_ingestion.py](mdc:backend/src/ingestion/indexing/transcript_ingestion.py)
+    - Entry points and orchestration helpers to run end‑to‑end ingestion.
+  - [backend/src/ingestion/indexing/tools/transcript_ingestion_tools.py](mdc:backend/src/ingestion/indexing/tools/transcript_ingestion_tools.py)
+    - Utilities for fetching, splitting, transforming transcript text and intermediate artifacts.
+  - [backend/src/ingestion/indexing/prompts/transcript_prompts.py](mdc:backend/src/ingestion/indexing/prompts/transcript_prompts.py)
+    - Prompt templates for aggregate and segment workflows.
+  - [backend/src/ingestion/indexing/prompts/langsmith_client.py](mdc:backend/src/ingestion/indexing/prompts/langsmith_client.py)
+    - Optional LangSmith utilities for prompt/version tracking.
+  - [backend/src/schemas/transcript_llm_schemas.py](mdc:backend/src/schemas/transcript_llm_schemas.py)
+    - Pydantic models for structured LLM outputs (e.g., products, treatments, businesses, compounds, claims, and master summaries).
+
+- API surface (future)
+  - [backend/main.py](mdc:backend/main.py)
+    - FastAPI application where endpoints will be exposed to trigger ingestion, query entities/summaries, and power the frontend portal.
+
+## End‑to‑End Workflow
+
+### 1) Discover Episodes (Selenium)
+
+Goal: Build/refresh the backlog of per‑episode page URLs to ingest.
+
+- Crawl the podcast listing page(s) using Selenium and collect episode page links.
+- Continuously click “View more” to load more cards and collect their `<a>` targets.
+- Consult MongoDB for the most recent episode already stored; when encountered during scraping, STOP to ensure incremental ingestion.
+- Persist: episode URL, title, slug/ID, and minimal metadata needed for downstream steps.
+
+### 2) Extract Per‑Episode Artifacts (HTML Parsing)
+
+Goal: From each episode page URL, extract:
+
+- Transcript link (canonical URL to the transcript). Use `store_transcript_links` to identify and store this, unified with the same DB upsert discipline as other artifacts.
+- Mini‑summaries, timeline, and resources (links, referenced products/entities, etc.) via `webpage_ep_parsing.py`.
+- Persist/Upsert to collections: `episodes`, `resources`, and the `transcripts` document “envelope” (metadata), keeping referential integrity between episode and transcript.
+
+Integration note: `store_transcript_links` and `webpage_ep_parsing.py` should be orchestrated together so each episode page is fetched once, all artifacts are extracted, and the result is upserted atomically.
+
+### 3) Persist Full Transcript Text
+
+Goal: Store the entire transcript text in the `transcripts` collection rather than deferring to the external transcript link.
+
+- Fetch the full transcript from the stored `transcript_link`.
+- Persist to `transcripts` with fields like: `full_text`, `source_url`, `timeline` alignment, token counts, and any parsing provenance.
+- Ensure idempotent upserts keyed by episode/transcript IDs.
+
+### 4) LLM Ingestion Workflows (LangGraph + LangChain + Gemini)
+
+Two complementary workflows produce both aggregate and granular structured knowledge.
+
+- Aggregate Summary Workflow
+
+  - Inputs: timeline + mini‑summaries + the entire transcript.
+  - Produces: a “master aggregate summary.”
+  - Post‑processing: derive topic‑specific summaries (products, treatments, businesses, compounds, claims). Validate and coerce to [transcript_llm_schemas.py](mdc:backend/src/schemas/transcript_llm_schemas.py) models.
+  - Persistence: upsert summaries/entities to their respective collections with back‑references to the source transcript and episode.
+
+- Segment‑by‑Timeline Workflow
+  - Inputs: the timeline and full transcript text stored in `transcripts`.
+  - Process: segment the transcript by timeline; summarize segment N, then summarize segment N+1 with awareness of N, until complete.
+  - Produces: stitched per‑segment summaries plus the same topic‑specific summaries/entities as above.
+  - Persistence: same as above; ensure consistent IDs and relationships to the transcript and episode.
+
+### 5) Vector Indexing (Pinecone + Gemini Embeddings)
+
+Goal: Make the content searchable and retrievable with smart chunking and strong metadata.
+
+- Index the master aggregate summaries (always). Consider indexing the entire transcript text as well.
+- Use a “smart chunking” strategy (respect sections, speaker turns, or timeline boundaries) to improve semantic retrieval.
+- Embeddings: Gemini embeddings.
+- Metadata: include identifiers for `episode_id`, `transcript_id`, `summary_id`, types (aggregate vs segment vs raw), and any entity links produced by the LLM workflows.
+
+### 6) API + Frontend
+
+- Expose FastAPI routes in [backend/main.py](mdc:backend/main.py) to:
+  - Trigger ingestion (crawl → parse → store → summarize → index).
+  - Query transcripts, summaries, and entities.
+  - Provide RAG endpoints for the frontend.
+- Frontend: a biohacking information portal enabling users to converse with transcripts and derived entities.
+
+## Data Model (High‑Level)
+
+- Episodes: canonical details for each published episode (title, URL, slug, date, guests).
+- Transcripts: full text, timeline, source URL, tokens; links to an `episode_id`.
+- Resources: links and references scraped from the episode page (and possibly the transcript), linked to `episode_id`/`transcript_id`.
+- Summaries:
+  - Master aggregate summary (per transcript/episode).
+  - Topic‑specific summaries: products, treatments, businesses, compounds, claims — validated against [transcript_llm_schemas.py](mdc:backend/src/schemas/transcript_llm_schemas.py).
+- Vector Index: Pinecone namespaces/indexes with embeddings + metadata linking back to the above IDs.
+
+## Implementation Contracts and Operational Notes
+
+- Idempotency: all writes should be upserts keyed by stable IDs (episode slug/URL, transcript ID).
+- Single source of truth: schemas in [mongo_schema_overwrite.py](mdc:backend/src/mongo_schema_overwrite.py); DB access via [mongo_setup.py](mdc:backend/src/config/mongo_setup.py).
+- Concurrency and retries: network fetches (HTML/transcripts) and LLM calls should be retried with backoff; rate limits respected.
+- Checkpointing: discovery should stop at the latest known episode; ingestion steps should be restartable without duplication.
+- Observability: log key events and persist run metadata for auditability of each stage.
+
+## Current Status and Action Items
+
+- Implemented
+
+  - Core schemas (Beanie documents) and async Mongo client config.
+  - Episode webpage parsing for mini‑summaries, timeline, and resources.
+  - Initial transcript link discovery.
+
+- To consolidate/finish next
+  - Refresh Selenium discovery script; integrate “stop at most recent in DB.”
+  - Compose `store_transcript_links` with `webpage_ep_parsing.py` for single‑pass extraction + atomic upserts.
+  - Fetch and persist full transcript text into `transcripts`.
+  - Finalize LangGraph pipelines for both aggregate and segment workflows; persist structured outputs via `transcript_llm_schemas.py`.
+  - Build Pinecone indexing with Gemini embeddings and rich metadata linking.
+  - Add FastAPI routes and wire them to the workflows to support the frontend portal.
+
+## Success Criteria
+
+- Every episode results in:
+  - A stored transcript with full text and timeline.
+  - A master aggregate summary and topic‑specific structured summaries.
+  - Vector embeddings with metadata linking vectors → summaries/transcripts/episodes.
+- Ingestion is idempotent, restartable, and incremental.
+- API endpoints expose ingestion triggers and query/RAG capabilities for the frontend.

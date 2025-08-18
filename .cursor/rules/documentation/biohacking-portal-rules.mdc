@@ -1,0 +1,186 @@
+# Bio-Hacking Information Portal - Documentation Rules
+
+## Project Overview
+
+The Bio-Hacking Information Portal is an AI-powered agentic system designed to revolutionize access to biohacking knowledge and tools. The system centers around Dave Asprey's "Human Upgrade" podcast transcripts and expands to create a comprehensive biohacking ecosystem.
+
+### Core Mission
+
+Extract, index, and orchestrate the most up-to-date biohacking tools and knowledge from expert sources, particularly Dave Asprey's extensive content library, to provide personalized biohacking guidance through an intelligent AI agent system.
+
+## System Architecture & Features
+
+### 1. Entity Indexing System
+
+The AI agent assists in indexing and managing these core entities:
+
+- **BioMarkers**: Measurable biological indicators and their optimal ranges
+- **BioHackers**: Expert practitioners and their methodologies
+- **Products**: Supplements, devices, and tools for biohacking
+- **Services**: Treatments, testing, and professional services
+- **Transcripts**: Podcast episodes and expert interviews (primary source: Human Upgrade)
+- **Claims**: Scientific assertions and their evidence (e.g., "rancid seed oils cause harm")
+- **Companies**: Vendors, manufacturers, and service providers
+
+- **Compounds (More Generally)**: Compounds and their properties
+- **Stories**: User experiences, case studies, and success narratives
+- **Supplements**: Supplements and their properties
+
+### 2. Advanced Search Orchestration
+
+- Intelligent query processing across all entity types
+- Cross-referencing and relationship mapping between entities
+- Evidence-based claim verification and source tracking
+- Temporal analysis of evolving biohacking trends
+
+### 3. AI Agent Capabilities
+
+- **Prompt Engineering**: Context-aware, personalized biohacking recommendations
+- **Retrieval Augmented Generation (RAG)**: Real-time knowledge synthesis
+- **Agentic Memory**: Persistent user context and preference learning
+- **Multi-modal Processing**: Text, audio, and data integration
+
+### 4. User Interface
+
+- Intuitive, user-friendly frontend for biohacking exploration
+- Personalized dashboards and recommendation engines
+- Interactive entity exploration and relationship visualization
+
+## Technology Stack
+
+### Confirmed Technologies
+
+- **Database**: MongoDB
+  - Primary use: Agentic memory and document storage
+  - Special focus: Human Upgrade podcast transcript storage
+- **Agent Framework**: Langchain, Langgraph, LangSmith, LangMem, LlamaIndex
+  - Orchestrates: Prompts, RAG, fine-tuning, observability
+- **Backend**: Python (asynchronous-first workflows)
+  - Use `uv` for package management
+  - Prefer async/await patterns throughout
+  - FastAPI for backend
+- **Frontend**: React (Next.js)
+- **AI Orchestration**: Model Context Protocol (MCP) by Anthropic
+  - Manages: Resources, tools, prompts, and system coordination
+
+### Anticipated Technologies (Not Yet Consolidated)
+
+- **Vector Store**: Likely Pinecone for semantic search capabilities
+- **Agentic Memory**: Potential integration with MemGPT or similar framework
+- **Schema Design**: Entity relationships and data models (TBD)
+- **Architecture**: Full backend and frontend architecture (in development)
+
+## Dave Asprey & Human Upgrade Integration
+
+### Content Source Priority
+
+- **Primary Source**: Dave Asprey's "Human Upgrade" podcast transcripts
+- **Content Focus**: Latest biohacking tools, techniques, and expert insights
+- **Processing Pipeline**:
+  1. Transcript ingestion and parsing
+  2. Entity extraction and classification
+  3. MongoDB Ingestion. These collections will transform into a knowledge graph once seeded.
+  4. Knowledge graph construction
+  5. Continuous updates and fact-checking
+  6. User-facing integration
+
+### Knowledge Authority
+
+Dave Asprey is recognized as a leading authority in biohacking, and his content serves as the foundational knowledge base for the system. The AI agent should:
+
+- Prioritize Human Upgrade content for biohacking recommendations
+- Cross-reference Asprey's insights with other expert sources
+- Maintain temporal context of evolving biohacking practices
+- Respect the authority and expertise demonstrated in the podcast content
+
+## Development Guidelines
+
+### Code Organization
+
+- Follow async-first Python patterns
+- Use proper module structure with `__init__.py` files
+- Maintain clear separation between ingestion, processing, and serving layers
+- Implement comprehensive error handling and logging
+
+### Data Management
+
+- Ensure MongoDB schema consistency across all entity types
+- Implement proper indexing strategies for search performance
+- Maintain data lineage and source attribution
+- Design for scalability and real-time updates
+
+### AI Agent Development
+
+- Leverage Langchain, Langgraph, LangSmith, LangMem, LlamaIndex capabilities for agent orchestration
+- Implement robust prompt engineering practices
+- Design for continuous learning and adaptation
+- Ensure transparent reasoning and source citation
+
+### User Experience
+
+- Prioritize intuitive navigation and discovery
+- Implement responsive design principles
+- Ensure accessibility and inclusive design
+- Design for both novice and expert biohackers
+
+## Documentation Standards
+
+### Code Documentation
+
+- All functions and classes must include comprehensive docstrings
+- Include type hints for all function parameters and return values
+- Document async functions with special attention to concurrency considerations
+- Maintain clear README files for each major module
+
+### Entity Documentation
+
+- Each entity type must have clear schema documentation
+- Include example data structures and relationships
+- Document data sources and update frequencies
+- Maintain glossaries for biohacking terminology
+
+### API Documentation
+
+- Comprehensive endpoint documentation with examples
+- Clear authentication and authorization requirements
+- Rate limiting and usage guidelines
+- Error response formats and troubleshooting guides
+
+## Quality Assurance
+
+### Testing Requirements
+
+- Unit tests for all core functionality
+- Integration tests for AI agent interactions
+- Performance testing for search and retrieval operations
+- User acceptance testing for frontend components
+
+### Data Quality
+
+- Implement validation rules for all entity types
+- Regular audits of source data accuracy
+- Fact-checking protocols for claims and recommendations
+- User feedback integration for continuous improvement
+
+## Future Considerations
+
+### Scalability Planning
+
+- Design for horizontal scaling of processing pipelines
+- Plan for increased transcript volume and entity complexity
+- Consider multi-language support for global biohacking community
+- Prepare for integration with wearable devices and biomarker tracking
+
+### Research Integration
+
+- Stay current with latest biohacking research and trends
+- Implement mechanisms for incorporating new scientific findings
+- Plan for academic and clinical partnership integrations
+- Design for evidence-based recommendation evolution
+
+---
+
+\*\* This documentation serves like a system prompt as foundational context for the AI Agent. It should be used when deciding on major features,
+major design decisions, or grounding.
+
+_This documentation serves as the foundational guide for all development work on the Bio-Hacking Information Portal. All team members should reference these guidelines when contributing to the project._
