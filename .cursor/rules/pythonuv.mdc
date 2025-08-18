@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+This project uses uv for package managements. Whenever you decide to run a file, determine if the file is within a module with a **init**.py file and if it is use uv run python -m module_name.file_name if not use uv run python file_name.py
