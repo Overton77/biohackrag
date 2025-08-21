@@ -198,6 +198,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic", extra = ["vertex"] },
     { name = "beanie" },
+    { name = "charset-normalizer" },
     { name = "langchain-google-genai" },
     { name = "langchain-google-vertexai" },
     { name = "langsmith" },
@@ -217,6 +218,7 @@ dependencies = [
 requires-dist = [
     { name = "anthropic", extras = ["vertex"], specifier = ">=0.62.0" },
     { name = "beanie", specifier = ">=2,<3" },
+    { name = "charset-normalizer", specifier = ">=3.4.2" },
     { name = "langchain-google-genai", specifier = ">=2.1.9" },
     { name = "langchain-google-vertexai", specifier = ">=2.0.28" },
     { name = "langsmith", specifier = ">=0.4.13" },
