@@ -20,6 +20,9 @@ dependencies = [
   "selenium>=4.35.0",
   "webdriver-manager>=4.0.2",
   "charset-normalizer>=3.4.2",
+  "mcp[cli]>=1.13.0",
+  "brotli>=1.1.0",
+  "async-timeout>=5.0.1",
 ]
 
 [build-system]

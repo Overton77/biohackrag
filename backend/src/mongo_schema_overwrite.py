@@ -91,7 +91,14 @@ class Person(BaseDoc):
         kind (Optional[PersonKind]): Type of person (host, guest, doctor, etc)
     """
     name: str
-    kind: Optional[PersonKind] = None  # e.g., host, guest, doctor
+    kind: Optional[PersonKind] = None  # e.g., host, guest, doctor 
+    bio: Optional[str] = None    
+    website: Optional[str] = None  
+    social_links: Optional[List[Dict[str, Any]]] = None   
+    episode_appearances: Optional[List[BackLink["Episode"]]] = Field(default_factory=list, original_field="guests") 
+
+
+
 
     class Settings:
         name = "persons"
@@ -480,7 +487,10 @@ class Episode(BaseDoc):
     sponsors: Optional[List[Dict[str, Any]]] = None
     # Accept legacy string URLs or proper Link[Resource]
     webpage_resources: Optional[List[Union[Link[Resource], str]]] = None
-    learning_claims: Optional[List[str]] = None
+    learning_claims: Optional[List[str]] = None 
+    timeline: Optional[List[Dict[str, Any]]] = None    
+    master_summary: Optional[str] = None   
+    # Use this to produce vector store embeddings 
 
     purpose: Optional[str] = None
     participants: Optional[List[str]] = None

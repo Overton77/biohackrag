@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field 
-from typing import List, Optional, Dict, Any, Literal, Union, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, Literal, Union, TYPE_CHECKING, Enum
 from datetime import datetime, UTC
 
 # ========= Common mixins =========

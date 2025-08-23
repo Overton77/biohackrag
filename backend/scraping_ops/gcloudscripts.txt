@@ -1,0 +1,84 @@
+gcloud services enable \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  cloudbuild.googleapis.com \
+  cloudscheduler.googleapis.com \
+  secretmanager.googleapis.com
+ 
+
+
+ PROJECT_ID=$(gcloud config get-value project)
+REGION=us-central1
+REPO=scraper-repo
+IMAGE=dave-podcast-scraper
+
+gcloud artifacts repositories create $REPO \
+  --repository-format=docker \
+  --location=$REGION --description="Selenium scraper images"
+
+gcloud builds submit --tag $REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE:latest 
+
+
+--- MONGODB URI  IN SECRETS 
+
+echo -n 'YOUR_MONGODB_URI' | gcloud secrets create mongo-uri --data-file=-
+gcloud secrets versions add mongo-uri --data-file=<(echo -n 'YOUR_MONGODB_URI')
+ 
+
+OPTIONAL GCS BUCKET 
+
+gsutil mb -l $REGION gs://$PROJECT_ID-dave-scraper-logs
+ 
+
+CREATE THE CLOUD JOB 
+
+
+gcloud run jobs create dave-podcast-scraper \
+  --image $REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE:latest \
+  --region $REGION \
+  --max-retries=1 \
+  --cpu=1 --memory=1Gi \
+  --set-secrets MONGODB_URI=mongo-uri:latest \
+  --set-env-vars DB_NAME=biohack_agent,COLLECTION=episodes,LOG_LEVEL=INFO
+ 
+
+
+IF YOU WANT FILE LOGS IN BUCKET 
+
+
+gcloud run jobs update dave-podcast-scraper \
+  --region $REGION \
+  --add-volume name=logs,type=cloud-storage,bucket=$PROJECT_ID-dave-scraper-logs \
+  --add-volume-mount volume=logs,mount-path=/logs \
+  --set-env-vars LOG_PATH=/logs/podcast_scraper.log
+
+
+Test the job once 
+
+gcloud run jobs execute dave-podcast-scraper --region $REGION
+
+
+Schedule it to run daily 
+
+
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+gcloud scheduler jobs create http run-dave-podcast-scraper-daily \
+  --location $REGION \
+  --schedule="0 6 * * *" \  # every day at 06:00 in the job's timezone setting
+  --http-method POST \
+  --uri="https://run.googleapis.com/v2/projects/$PROJECT_ID/locations/$REGION/jobs/dave-podcast-scraper:run" \
+  --oauth-service-account-email "$PROJECT_NUMBER-compute@developer.gserviceaccount.com"
+
+
+
+bash update_mounts.sh \
+  -p animated-graph-463101-t5 \
+  -r us-central1 \
+  -j dave-podcast-scraper \
+  -b animated-graph-463101-t5-dave-scraper-logs
+ 
+
+
+
+ 

@@ -8,9 +8,10 @@ from contextlib import asynccontextmanager
 from src.mongo_schema_overwrite import init_beanie_with_pymongo 
 from src.store_transcript_links import process_all_missing_transcripts  
 from pydantic import BaseModel  
-from typing import Optional   
+from typing import Optional, List, Iterable, Dict, Any  
 from webpage_parsing.webpage_ep_parsing import update_all_episodes   
-import asyncio 
+import asyncio  
+from mcp_server import mcp 
 
 
 load_dotenv()
@@ -53,6 +54,15 @@ async def ingest_transcript(request: Request):
 
 # Test this on one tomorrow  
 
+class SummarizeEpisodeDumpRequest(BaseModel):  
+    timeline_string: str  
+    full_transcript_string: str    
+    high_level_overview_string: str   
+
+@app.post("/summarize_episode_dump") 
+async def summarize_episode_dump(request: Request, summarize_episode_dump_request: SummarizeEpisodeDumpRequest): 
+    pass 
+
 
 
 @app.post("/update_episodes_webpage") 
@@ -60,6 +70,10 @@ async def update_episodes_transcripts(request: Request):
     await update_all_episodes(request.app.state.mongo_client) 
     return {"message": "Episodes transcripts updated successfully"} 
 
+
+
+
+app.mount("/mcp", mcp.streamable_http_app())
 
 
 

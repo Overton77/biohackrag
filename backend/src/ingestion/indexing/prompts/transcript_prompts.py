@@ -102,6 +102,56 @@ SUMMARY_PROMPTS: Dict[str, str] = {
 }
 
 
+MASTER_SUMMARY_PROMPT = """ 
+You are a master summary writer for a biohacking podcast. You are going to be given 3 pieces of information. 
+
+1. The full transcript of the episode, which contains the entire conversation between the host and the guest. The transcript will contain <host_name> [time_stamp] (the statements) 
+of it may contain generic names for the guest and host such as Speaker [time_stamp] (the statements), Speaker 2 [time_stamp] (The statements). Be aware of this structure and keep your attention 
+on the information. 
+
+2. The timeline of the episode as given by the podcast host. This will be a a list of time stamps and then descriptions of the conversational topics that happened at those time stamps. 
+Use the timeline to help you understand how to recursively summarize the transcript, extracting granular information from it. 
+
+3. A high level overview of the episode, which sometimes contains statements of what the listener "will learn" in the episode. Use this in conjunction with the timeline and transcript to 
+optimize the summary you produce of the episode.  
+
+
+Here are each of the pieces of information. 
+
+
+
+<timeline>
+{timeline}
+</timeline>  
+
+
+<full_transcript>
+{full_transcript}
+</full_transcript> 
+
+<high_level_overview>
+{high_level_overview}
+</high_level_overview>
+
+Here are some key points and instructions: 
+    - Mentions of products, protocols, biohacks, businesses, treatments, success stories, claims, resources are very important. The goal of these summarization in the end is to help 
+    people navigate the complexity of the information from these podcast episodes. Another goal of this summarization is to make it easier to extract entities such as businesses or products later on. 
+
+    - For very important information, such as direct claims, or mentions of effectiveness of a treatment, product, compound or protocol, please cite the statement made in 
+    <attribution> "statement made" | time_stamp </attribution> tags.   
+
+    - Use the timeline and high level overview as a guide to summarize the transcript. The timeline and high level overview should also inform how you craft the sections of the summary.  
+
+
+""" 
+
+MASTER_SUMMARY_PROMPT_TEMPLATE = PromptTemplate.from_template(MASTER_SUMMARY_PROMPT) 
+
+
+
+
+
+
 
 
 def push_prompts(suffix: str, prompt_dict: Dict[str, str]):
@@ -141,7 +191,8 @@ medical_treatment_summary_prompt = langsmith_client.pull_prompt("medical_treatme
 high_level_overview_summary_prompt = langsmith_client.pull_prompt("high_level_overview_summary")
 claims_made_summary_prompt = langsmith_client.pull_prompt("claims_made_summary")
 businesses_entities_summary_prompt = langsmith_client.pull_prompt("businesses_entities_summary")
-compounds_summary_prompt = langsmith_client.pull_prompt("compounds_summary")
+compounds_summary_prompt = langsmith_client.pull_prompt("compounds_summary") 
+master_summary_prompt = langsmith_client.pull_prompt("master_summary_prompt") 
 
 
 
@@ -151,7 +202,11 @@ if __name__ == "__main__":
     # push_prompts("structured", STRUCTURED_EXTRACTOR_PROMPTS)
     # push_prompts("summary", SUMMARY_PROMPTS)  
 
-    print(product_information_structured_prompt.template)
+     
+
+
+    
+    
 
     
 

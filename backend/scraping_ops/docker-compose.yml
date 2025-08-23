@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  scraper:
+    build: .
+    image: dave-podcast-scraper:dev
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - DB_NAME=biohack_agent
+      - COLLECTION=episodes
+      - LOG_PATH=/logs/podcast_scraper.log
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/logs

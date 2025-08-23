@@ -2,14 +2,17 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 from bs4 import BeautifulSoup  
 from bson import ObjectId 
-from src.mongo_schema_overwrite import init_beanie_with_pymongo, Episode, Transcript, Resource
+from src.mongo_schema_overwrite import init_beanie_with_pymongo, Episode, Transcript, Resource  
+from typing import Optional, List, Dict, Any, Iterable   
+from urllib.parse import urlparse  
 
 # Reuse the robust parsers implemented elsewhere
 from .episode_summaries import (
     parse_episode_timeline as es_parse_episode_timeline,
     parse_resources as es_parse_resources,
     parse_major_summary as es_parse_major_summary,
-    parse_sponsors as es_parse_sponsors,
+    parse_sponsors as es_parse_sponsors, 
+    extract_episode_number as es_extract_episode_number, 
 )
 from src.store_transcript_links import extract_transcript_url_enhanced 
 import asyncio  
@@ -45,9 +48,11 @@ class WebpageEpisodeParse:
                 "text/html,application/xhtml+xml,application/xml;q=0.9,"
                 "image/avif,image/webp,image/apng,*/*;q=0.8"
             ),
-            "Accept-Language": "en-US,en;q=0.9",
+          
             "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
+            "Pragma": "no-cache", 
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
             "Referer": "https://daveasprey.com/",
@@ -81,7 +86,11 @@ class WebpageEpisodeParse:
 
     def parse_major_summary(self, html: str) -> Dict[str, Any]:
         soup = self._soup(html)
-        return es_parse_major_summary(soup)
+        return es_parse_major_summary(soup) 
+    
+    def parse_episode_number(self, html: str) -> Optional[str]: 
+        soup = self._soup(html) 
+        return es_extract_episode_number(soup) 
 
     async def parse_all_except_transcript(self, url: str) -> Dict[str, Any]:
         """Fetch HTML and return all parsed parts as a dictionary."""
@@ -96,6 +105,7 @@ class WebpageEpisodeParse:
             #webpage_summary 
             "sponsors": self.parse_sponsors(html), 
             #sponsors Will become Business later on if deemed. 
+            "episode_number": self.parse_episode_number(html), 
         }   
     
     async def parse_all(self, url: str) -> Dict[str, Any]:

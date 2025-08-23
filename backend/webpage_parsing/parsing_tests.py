@@ -1,85 +1,10 @@
-from bs4 import BeautifulSoup  
-import json
-import re
-from typing import Any, Dict, List, Optional  
-import asyncio 
-from src.config.mongo_setup import get_async_mongo_client 
-import aiohttp 
+from src.store_transcript_links import extract_transcript_url_enhanced  
+import re   
+from bs4 import BeautifulSoup    
+from typing import Dict, Any, List, Optional   
 
+episode_path = r"C:\Users\Pinda\Proyectos\BioHackAgent\backend\output\episode_1303.html" 
 
-
-def extract_episode_number(soup: BeautifulSoup) -> Optional[str]:
-    """Extract the episode number from common locations in the page.
-
-    Heuristics, in order:
-    1) URL-based: <link rel="canonical">, <meta property="og:url">, <meta name="twitter:url">
-       - Looks for a path segment that starts with digits (e.g., 1303-nayan-patel)
-    2) Heading-based: <h1>, <h2>, <h3>
-       - Looks for patterns like "Episode 1303", "Ep 1303", or "#1303"
-    3) <title> tag fallback
-    """
-
-    def _extract_from_url(url: Optional[str]) -> Optional[str]:
-        if not url:
-            return None
-        try:
-            # Prefer a path segment that starts with a 3-5 digit number
-            path = re.sub(r"^https?://[^/]+", "", url)
-            for segment in path.split('/'):
-                m = re.match(r"^(\d{3,5})\b", segment)
-                if m:
-                    return m.group(1)
-            # Generic catch if number appears later in the segment
-            m = re.search(r"/(\d{3,5})(?:[\-/]|$)", path)
-            if m:
-                return m.group(1)
-        except Exception:
-            return None
-        return None
-
-    def _extract_from_text(text: Optional[str]) -> Optional[str]:
-        if not text:
-            return None
-        patterns = [
-            r"episode\s*(\d{2,5})",  # Episode 1303
-            r"ep\s*(\d{2,5})",       # Ep 1303
-            r"#\s*(\d{2,5})",        # #1303
-        ]
-        lowered = text.lower()
-        for pat in patterns:
-            m = re.search(pat, lowered, re.I)
-            if m:
-                return m.group(1)
-        return None
-
-    # 1) Try URL-based sources
-    canonical = soup.find("link", rel=lambda v: v and v.lower() == "canonical")
-    if canonical:
-        ep = _extract_from_url(canonical.get("href"))
-        if ep:
-            return ep
-
-    for prop in ["og:url", "twitter:url"]:
-        tag = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
-        if tag:
-            ep = _extract_from_url(tag.get("content"))
-            if ep:
-                return ep
-
-    # 2) Try headings
-    for h_tag in soup.find_all(["h1", "h2", "h3"]):
-        ep = _extract_from_text(h_tag.get_text(" ", strip=True))
-        if ep:
-            return ep
-
-    # 3) Fallback to <title>
-    title_tag = soup.find("title")
-    if title_tag:
-        ep = _extract_from_text(title_tag.get_text(" ", strip=True))
-        if ep:
-            return ep
-
-    return None
 
 
 def _remove_boilerplate_text(text: str) -> str:
@@ -214,6 +139,79 @@ def parse_resources(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     return items
 
 
+def extract_episode_number(soup: BeautifulSoup) -> Optional[str]:
+    """Extract the episode number from common locations in the page.
+
+    Heuristics, in order:
+    1) URL-based: <link rel="canonical">, <meta property="og:url">, <meta name="twitter:url">
+       - Looks for a path segment that starts with digits (e.g., 1303-nayan-patel)
+    2) Heading-based: <h1>, <h2>, <h3>
+       - Looks for patterns like "Episode 1303", "Ep 1303", or "#1303"
+    3) <title> tag fallback
+    """
+
+    def _extract_from_url(url: Optional[str]) -> Optional[str]:
+        if not url:
+            return None
+        try:
+            # Prefer a path segment that starts with a 3-5 digit number
+            path = re.sub(r"^https?://[^/]+", "", url)
+            for segment in path.split('/'):
+                m = re.match(r"^(\d{3,5})\b", segment)
+                if m:
+                    return m.group(1)
+            # Generic catch if number appears later in the segment
+            m = re.search(r"/(\d{3,5})(?:[\-/]|$)", path)
+            if m:
+                return m.group(1)
+        except Exception:
+            return None
+        return None
+
+    def _extract_from_text(text: Optional[str]) -> Optional[str]:
+        if not text:
+            return None
+        patterns = [
+            r"episode\s*(\d{2,5})",  # Episode 1303
+            r"ep\s*(\d{2,5})",       # Ep 1303
+            r"#\s*(\d{2,5})",        # #1303
+        ]
+        lowered = text.lower()
+        for pat in patterns:
+            m = re.search(pat, lowered, re.I)
+            if m:
+                return m.group(1)
+        return None
+
+    # 1) Try URL-based sources
+    canonical = soup.find("link", rel=lambda v: v and v.lower() == "canonical")
+    if canonical:
+        ep = _extract_from_url(canonical.get("href"))
+        if ep:
+            return ep
+
+    for prop in ["og:url", "twitter:url"]:
+        tag = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
+        if tag:
+            ep = _extract_from_url(tag.get("content"))
+            if ep:
+                return ep
+
+    # 2) Try headings
+    for h_tag in soup.find_all(["h1", "h2", "h3"]):
+        ep = _extract_from_text(h_tag.get_text(" ", strip=True))
+        if ep:
+            return ep
+
+    # 3) Fallback to <title>
+    title_tag = soup.find("title")
+    if title_tag:
+        ep = _extract_from_text(title_tag.get_text(" ", strip=True))
+        if ep:
+            return ep
+
+    return None
+
 def parse_html_content(html_content: str) -> Dict[str, Any]:
     soup = BeautifulSoup(html_content, "html.parser")
     return {
@@ -221,113 +219,11 @@ def parse_html_content(html_content: str) -> Dict[str, Any]:
         "resources": parse_resources(soup),
         "major_summary": parse_major_summary(soup),
         "sponsors": parse_sponsors(soup),
+        "episode_number": extract_episode_number(soup),
     }
 
 
-# def main() -> None:
-#     html_path = r"C:\Users\Pinda\Proyectos\BioHackAgent\output\ep1332_aiohttp_20250805_144953.html"
-#     with open(html_path, "r", encoding="utf-8") as file:
-#         html_content = file.read()
 
-#     result = parse_html_content(html_content)  
-#     print(json.dumps(result, ensure_ascii=False, indent=2))
-#     return result 
-    
-async def save_to_mongo(result: Dict[str, Any]) -> None:  
-    episode_number = 1333 
-    client = await get_async_mongo_client()
-    if client is None:
-        print("Failed to connect to MongoDB")
-        return
-
-    db = client["biohack_agent"] 
-
-    collection = db["episode_urls"]   
-
-    episode_entry = await collection.find_one({"episode_number": episode_number})
-    
-    episode_id = episode_entry["_id"]  
-
-    all_timeline_entries = []  
-    for key, value in result.items(): 
-        if key == "timeline": 
-            for item in value: 
-                if item.get("time") and item.get("title"): 
-                    all_timeline_entries.append({
-                        "time": item["time"],
-                        "title": item["title"],
-                        "description": item.get("description"),
-                    })
-
-            await collection.update_one(
-                {"_id": episode_id},
-                {"$set": {"timeline": all_timeline_entries}}
-            )
-
-
-
-
-async def _fetch_html(episode_url: str, timeout_s: int = 30) -> str:
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": (
-            "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "image/avif,image/webp,image/apng,*/*;q=0.8"
-        ),
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Referer": "https://daveasprey.com/",
-    }
-    timeout = aiohttp.ClientTimeout(total=timeout_s)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.get(episode_url, headers=headers, allow_redirects=True) as response:
-            return await response.text()
-
-
-async def parse_and_update_timeline_for_episode_url(episode_url: str) -> Optional[str]:
-    """Fetch an episode by episode_url, parse its timeline from the webpage, and update MongoDB.
-
-    Only saves entries that include both time and title. Returns the episode document _id as a string.
-    """
-    client = await get_async_mongo_client()
-    if client is None:
-        print("Failed to connect to MongoDB")
-        return None
-
-    try:
-        db = client["biohack_agent"]
-        collection = db["episode_urls"]
-
-        episode_entry = await collection.find_one({"episode_url": episode_url})
-        if not episode_entry:
-            print("Episode not found for provided episode_url")
-            return None
-
-        html_content = await _fetch_html(episode_url)
-        parsed = parse_html_content(html_content)
-
-        timeline_entries: List[Dict[str, str]] = []
-        for item in parsed.get("timeline", []):
-            time_text = item.get("time")
-            title_text = item.get("title")
-            if time_text and title_text:
-                timeline_entries.append({"time": time_text, "title": title_text})
-
-        await collection.update_one(
-            {"_id": episode_entry["_id"]},
-            {"$set": {"timeline": timeline_entries}},
-        )
-
-        return str(episode_entry["_id"])
-    finally:
-        await client.close()
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
@@ -467,43 +363,139 @@ def parse_sponsors(soup: BeautifulSoup) -> List[Dict[str, Any]]:
 
 
     
+def read_html_file(file_path: str) -> str:
+    """Read HTML content from a local file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"HTML file not found: {file_path}")
+        return ""
+    except Exception as e:
+        print(f"Error reading HTML file: {e}")
+        return ""
 
 
+def main():
+    """Main function to read HTML file and parse all content."""
+    print("Reading HTML file from:", episode_path)
+    html_content = read_html_file(episode_path)
+    
+    if not html_content:
+        print("Failed to read HTML content. Exiting.")
+        return
+    
+    print(f"Successfully read HTML file ({len(html_content)} characters)")
+    print("\n" + "="*80) 
 
+    transcript_link = extract_transcript_url_enhanced(html_content)
+    print(f"Transcript link: {transcript_link}")
 
+    # Extract episode number
+    soup = BeautifulSoup(html_content, "html.parser")
+    episode_number = extract_episode_number(soup)
+    print(f"Episode number: {episode_number}")
+    
+    # Parse all content
+    parsed_data = parse_html_content(html_content)
+    
+    # Display Timeline
+    print("\n📅 TIMELINE:")
+    print("-" * 40)
+    timeline = parsed_data.get("timeline", [])
+    if timeline:
+        for i, entry in enumerate(timeline, 1):
+            time_str = entry.get("time", "N/A")
+            title_str = entry.get("title", "N/A")
+            desc_str = entry.get("description", "")
+            print(f"{i}. [{time_str}] {title_str}")
+            if desc_str:
+                print(f"   Description: {desc_str}")
+    else:
+        print("No timeline entries found")
+    
+    # Display Resources
+    print("\n🔗 RESOURCES:")
+    print("-" * 40)
+    resources = parsed_data.get("resources", [])
+    if resources:
+        for i, resource in enumerate(resources, 1):
+            text = resource.get("text", "")
+            links = resource.get("links", [])
+            print(f"{i}. {text}")
+            if links:
+                for link in links:
+                    print(f"   Link: {link}")
+    else:
+        print("No resources found")
+    
+    # Display Major Summary
+    print("\n📝 MAJOR SUMMARY:")
+    print("-" * 40)
+    major_summary = parsed_data.get("major_summary", {})
+    if major_summary:
+        heading = major_summary.get("heading")
+        if heading:
+            print(f"Heading: {heading}")
+        
+        paragraphs = major_summary.get("paragraphs", [])
+        if paragraphs:
+            print(f"\nParagraphs ({len(paragraphs)}):")
+            for i, para in enumerate(paragraphs, 1):
+                print(f"{i}. {para}")
+        
+        bullets = major_summary.get("bullets", [])
+        if bullets:
+            print(f"\nBullet Points ({len(bullets)}):")
+            for i, bullet in enumerate(bullets, 1):
+                print(f"{i}. {bullet}")
+        
+        links = major_summary.get("links", [])
+        if links:
+            print(f"\nLinks ({len(links)}):")
+            for i, link in enumerate(links, 1):
+                print(f"{i}. {link}")
+        
+        free_resources = major_summary.get("free_resources", [])
+        if free_resources:
+            print(f"\nFree Resources ({len(free_resources)}):")
+            for i, resource in enumerate(free_resources, 1):
+                print(f"{i}. {resource}")
+        
+        minor_summary = major_summary.get("minor_summary")
+        if minor_summary:
+            print(f"\nMinor Summary: {minor_summary}")
+    else:
+        print("No major summary found")
+    
+    # Display Sponsors
+    print("\n💰 SPONSORS:")
+    print("-" * 40)
+    sponsors = parsed_data.get("sponsors", [])
+    if sponsors:
+        for i, sponsor in enumerate(sponsors, 1):
+            text = sponsor.get("text", "")
+            brand = sponsor.get("brand", "N/A")
+            has_code = sponsor.get("has_code_dave", False)
+            code = sponsor.get("code", "N/A")
+            discount = sponsor.get("discount_percent", "N/A")
+            links = sponsor.get("links", [])
+            
+            print(f"{i}. Brand: {brand}")
+            print(f"   Text: {text}")
+            print(f"   Has DAVE Code: {has_code}")
+            print(f"   Code: {code}")
+            print(f"   Discount: {discount}%")
+            if links:
+                print(f"   Links: {', '.join(links)}")
+            print()
+    else:
+        print("No sponsors found")
+    
+    print("\n" + "="*80)
+    print("Parsing complete!")
 
 if __name__ == "__main__":
-    # Load a sample HTML file and print timeline, resources, major summary (with minor_summary), and sponsors
-    html_path = "C:/Users/Pinda/Proyectos/BioHackAgent/backend/output/ep1333_aiohttp_20250805_144953.html"
-    with open(html_path, "r", encoding="utf-8") as f:
-        html_content = f.read()
-
-    parsed = parse_html_content(html_content)
-
-    print("Timeline:")
-    print(json.dumps(parsed.get("timeline", []), ensure_ascii=False, indent=2))
-
-    print("Resources:")
-    print(json.dumps(parsed.get("resources", []), ensure_ascii=False, indent=2))
-
-    print("Major Summary:")
-    print(json.dumps(parsed.get("major_summary", {}), ensure_ascii=False, indent=2))
-
-    print("Sponsors:")
-    print(json.dumps(parsed.get("sponsors", []), ensure_ascii=False, indent=2))  
-
-
-
-
-        
-
-
-
-
-
-
+    main()
 
     
-    
-
-
