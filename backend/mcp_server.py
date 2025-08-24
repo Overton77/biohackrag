@@ -6,7 +6,12 @@ from typing import List
 
 
 
-mcp = FastMCP(name="BiohackAgent")   
+mcp = FastMCP(name="BiohackAgent") 
+  
+
+mcp.settings.streamable_http_path = "/"  
+
+
 
 
 @mcp.prompt(title="Transcript Summary") 
@@ -27,10 +32,8 @@ def get_product_information(name: str, cost: str, buy_links: str, description: s
 
 
     
+if __name__ == "__main__":   
 
-
-
-
-
+    mcp.run(transport="streamable-http") 
 
 

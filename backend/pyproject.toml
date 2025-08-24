@@ -23,6 +23,7 @@ dependencies = [
   "mcp[cli]>=1.13.0",
   "brotli>=1.1.0",
   "async-timeout>=5.0.1",
+  "langchain-mcp-adapters>=0.1.9",
 ]
 
 [build-system]
