@@ -1,0 +1,13 @@
+chmod +x deploy_and_schedule.sh
+./deploy_and_schedule.sh \
+  -p animated-graph-463101-t5 \
+  -r us-central1 \
+  -R scraper-repo \
+  -i dave-podcast-scraper \
+  -j dave-podcast-scraper \
+  -c . \
+  -u 'mongodb+srv://USER:PASS@host/?retryWrites=true&w=majority&appName=Biohack' \
+  -b animated-graph-463101-t5-dave-scraper-logs \
+  -S mongo-uri \
+  -t "America/New_York" \
+  -C "0 6 * * *"

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field 
-from typing import List, Optional, Dict, Any, Literal, Union, TYPE_CHECKING, Enum
+from typing import List, Optional, Dict, Any, Literal, Union, TYPE_CHECKING 
+from enum import Enum  
 from datetime import datetime, UTC
 
 # ========= Common mixins =========
@@ -289,33 +290,6 @@ class CompoundOutput(BaseModel):
     description: Optional[str] = None
     type: Optional[CompoundType] = None
     benefits_as_stated: List[str] = Field(default_factory=list)
-
-
-
-
-
-class EpisodeMentions(BaseModel):
-    """Group all episode-linked lists in one spot.
-    
-    Fields:
-        products (List[Link[Product]]): Product mentions
-        protocols (List[Link[Protocol]]): Protocol mentions
-        biohacks (List[Link[BioHack]]): BioHack mentions
-        businesses (List[Link[Business]]): Business mentions
-        claims (List[Link[Claim]]): Claim mentions
-        treatments (List[Link[Treatment]]): Treatment mentions
-        success_stories (List[Link[SuccessStory]]): Success story mentions
-        resources (List[Link[Resource]]): Resource mentions
-    """
-    products: List[Link[Product]] = Field(default_factory=list)
-    protocols: List[Link[Protocol]] = Field(default_factory=list)
-    biohacks: List[Link[BioHack]] = Field(default_factory=list)
-    businesses: List[Link[Business]] = Field(default_factory=list)
-    claims: List[Link[Claim]] = Field(default_factory=list)
-    treatments: List[Link[Treatment]] = Field(default_factory=list)
-    success_stories: List[Link[SuccessStory]] = Field(default_factory=list)
-    resources: List[Link[Resource]] = Field(default_factory=list)
-
 
 
 
