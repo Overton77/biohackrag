@@ -142,8 +142,37 @@ async def find_episodes_with_full_transcript_and_timeline() -> List[Episode]:
         "transcript.$id": {"$in": transcript_ids}
     }).to_list()
 
-    return episodes
+    return episodes 
 
+
+class EpisodeSummary(BaseModel): 
+    episode_id: Optional[str] = None   
+
+@app.get("episode_summaries") 
+async def episode_summaries(request: Request, episode_request: EpisodeSummary):   
+
+    if episode_request.episode_id: 
+        episode = await Episode.get(episode_request.episode_id)  
+        return { 
+            "episode_id": episode.id,
+            "episode_number": episode.episode_number,
+            "master_summary": episode.master_summary,
+        } 
+    else: 
+        episodes = await Episode.find({"master_summary": {"$exists": True, "$ne": None}}).to_list()
+        return { 
+            "message": "Episodes that are summarized successfully. Ready for vector store",   
+            "status": "ok",
+
+            "episodes": [
+                {
+                    "episode_id": episode.id,
+                    "episode_number": episode.episode_number,
+                    "master_summary": episode.master_summary,
+                }
+                for episode in episodes
+            ]
+        }
   
 
 @app.post("/summarize_transcripts")

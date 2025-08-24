@@ -1,0 +1,29 @@
+1. Selenium Cloud Job Failed and is not Scheduled. Check on that  - Returns: episode_page_url on Episode collection 
+  1a. Consolidate the deploy_and_schedule.sh. This creates the Python Environment, supplies it, creates the cloud job, runs it and schedules  
+  it to run every day. This updates the episodes from the "Human Upgrade Podcast" 
+  1b. API Route to kick of the cloud job. API route to check the health of the most recent job.   
+  - file_location: backend/scraping_ops/ep_update_selenium.py, Dockerfile, deploy_and_schedule.sh  
+
+
+2. Refine logic of episode attribute enhancement from the episode_page_url.  
+   - file_location: backend/webpage_parsing/webpage_ep_parsing.py, episode_summaries.py, parsing_tests.py 
+   2a. Add episode title to Episode  
+   2b. Add a Guest Name eitheri n participants or guests. Guests actually Links to Person.  
+   2c. Should become a background job and not interfere with the API proccess.  
+
+3. MCP Server Created, MCP Client initializes inside the FAST API Server. One prompt experiment, namely the timeline, high level overview 
+and entire transcript are formatted into a prompt template. This is saved under master_summary. 
+    3a. We should make this event driven architecture, one step follows the next. 
+    3b. It's time to extract: Claims, Businesses, Products, Notable Compounds 
+    3c. We're nearing the needs of the Case Study ingestion and the Web Search tool for (businesses, products, biohackers, etc)  
+
+4. Structured Output from Summaries, Tool Calling  
+
+
+
+5. Pinecone Vector Store, Chunking Strategy, and Document relations  
+   5a. Outline needed,  
+
+
+
+6. FastAPI at .cursor/rules/documentation/FastAPI_structure.md. Modular, Organized. 
