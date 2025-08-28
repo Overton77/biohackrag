@@ -103,16 +103,7 @@ class AppSettings(BaseSettings):
         description="GCP project ID.",
     )
 
-    # --- Application / Runtime ---
-    google_oauth_client_credentials_path: Path = Field(
-        default=Path(
-            r"C:\Users\Pinda\Proyectos\BioHackAgent\backend\client_secret_490654219742-i9ea6bruh70731fgpi810hsf7hb1g47p.apps.googleusercontent.com.json"
-        ),
-        validation_alias=AliasChoices(
-            "GOOGLE_OAUTH_CLIENT_CREDENTIALS_PATH", "google_oauth_client_credentials_path"
-        ),
-        description="Absolute path to Google OAuth client credentials JSON.",
-    )
+  
 
     fastapi_port: int = Field(
         default=8000,
