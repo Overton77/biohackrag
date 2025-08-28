@@ -1,10 +1,9 @@
 from pydantic import BaseModel, Field, ConfigDict 
-from typing import List, Optional, Dict, Any, Literal, Union, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime, UTC
-from beanie import Document, Link, init_beanie, BackLink
-from config.mongo_setup import get_async_mongo_client   
-import asyncio 
-from pymongo import AsyncMongoClient
+from beanie import Document, Link,  BackLink
+
+
 from enum import Enum 
 
 # ========= Common mixins =========
@@ -474,7 +473,15 @@ class Episode(BaseDoc):
     """
     channel: Optional[Link[Channel]] = None  # allow missing legacy data
 
-    episode_page_url: Optional[str] = None
+    episode_page_url: Optional[str] = None 
+    youtube_embed_url: Optional[str] = None  
+    youtube_watch_url: Optional[str] = None   
+    youtube_video_id: Optional[str] = None   
+    title: Optional[str] = None   
+    views: Optional[int] = None   
+    likes: Optional[int] = None    
+    comments: Optional[int] = None    
+
     transcript_url: Optional[str] = None
     webpage_summary: Optional[str] = None
     internal_summary: Optional[str] = None
@@ -549,105 +556,7 @@ class MedicalTreatment(BaseDoc):
 
 
 
+ 
 
-async def init_beanie_with_pymongo() -> AsyncMongoClient:
-    """Initialize Beanie with all document models"""
-    client = await get_async_mongo_client()
-    if client is None:
-        raise RuntimeError("Async Mongo client not available. Check MONGO_CONNECTION.")
-    
-    # Initialize Beanie with all document models
-    await init_beanie(
-        database=client.biohack_agent, 
-        document_models=[
-            Business,
-            Person, 
-            Product, 
-            Compound, 
-            MedicalTreatment,
-            Resource,
-            Transcript,
-            Claim,
-            Episode,  
-            BioHack, 
-            BioMarker,  
-            Protocol, 
-            Treatment,
-            CaseStudy,
-            SuccessStory,
-            Channel,
-            AttributionQuote,
-        ]
-    )
-    return client
-
-
-
-
-def pydantic_to_beanie(
-    document_class: type[BaseDoc],
-    output: Union[BaseModel, Dict[str, Any]],
-    /,
-    **extra_fields: Any,
-) -> BaseDoc:
-    """Create a Beanie document instance from a Pydantic model or dict.
-
-    - Only fields that exist on the Beanie document are copied.
-    - Relation fields (e.g., links) are naturally ignored if not provided.
-    - extra_fields can override or set additional fields that exist on the document.
-    """
-    if isinstance(output, BaseModel):
-        payload: Dict[str, Any] = output.model_dump(exclude_none=True)
-    else:
-        payload = {**output}
-
-    allowed_keys = set(getattr(document_class, "model_fields").keys())
-    filtered = {key: value for key, value in payload.items() if key in allowed_keys}
-
-    for key, value in extra_fields.items():
-        if key in allowed_keys:
-            filtered[key] = value
-
-    return document_class(**filtered)
-
-
-def update_beanie_from_pydantic(
-    document: BaseDoc,
-    output: Union[BaseModel, Dict[str, Any]],
-) -> None:
-    """Update an existing Beanie document from a Pydantic model or dict."""
-    if isinstance(output, BaseModel):
-        payload: Dict[str, Any] = output.model_dump(exclude_none=True)
-    else:
-        payload = {**output}
-
-    allowed_keys = set(document.__class__.model_fields.keys())
-    for key, value in payload.items():
-        if key in allowed_keys:
-            setattr(document, key, value)
-
-
-
-    
-
-async def _test_simple_queries() -> None:
-    """Basic smoke test: init Beanie, fetch Episodes and Transcripts."""
-    client = await init_beanie_with_pymongo()
-
-    episodes = await Episode.find().sort("-episode_number").limit(10).to_list()
-    print(f"Episodes fetched: {len(episodes)}")
-    for ep in episodes:
-        print({
-            "_id": str(getattr(ep, "id", "")),
-            "episode_number": ep.episode_number,
-            "has_channel": ep.channel is not None,
-        })
-
-    transcripts = await Transcript.find().limit(10).to_list()
-    print(f"Transcripts fetched: {len(transcripts)}")
-
-    await client.close()
-
-
-if __name__ == "__main__":
-    asyncio.run(_test_simple_queries())
+if __name__ == "__main__": 
+    print("importing mongo schemas from  mongo_schema_overwrite.py") 

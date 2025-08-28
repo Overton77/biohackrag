@@ -21,7 +21,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mcp_adapters.tools import load_mcp_tools  
 from langchain_core.prompts import PromptTemplate 
 from langchain_core.output_parsers import StrOutputParser  
-from src.store_full_transcripts import fetch_transcript_text 
+
 
 
 
@@ -65,7 +65,10 @@ class UpdateTranscriptLinksRequest(BaseModel):
 class SummarizeEpisodeDumpRequest(BaseModel):
     timeline_string: str
     full_transcript_string: str
-    high_level_overview_string: str
+    high_level_overview_string: str 
+
+
+
 
 # ---------------------------------------------------------------------------
 # Helper: return an async context manager (NOT async def)
@@ -89,7 +92,12 @@ async def update_episodes(request: Request, update_data: UpdateRequest):
     if update_data.update:
         updated = await update_episodes_url_selenium(request.app.state.mongo_client)
         return {"message": "Episodes updated successfully", "updated_episodes": updated}
-    return {"message": "Update not requested"}
+    return {"message": "Update not requested"} 
+
+@app.post("/update_episodes_after_selenium") 
+async def update_all_episodes_after_selenium(request: Request): 
+    await update_all_episodes(episodes_to_update=None) 
+    return {"message": "Episodes updated successfully"} 
 
 @app.post("/update_transcript_links")
 async def update_transcript_links(request: Request, update_data: UpdateTranscriptLinksRequest):

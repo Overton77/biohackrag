@@ -5,6 +5,7 @@ description = "BioHackAgent project"
 requires-python = ">=3.12"
 dependencies = [
   "pydantic>=2.11,<3",
+  "pydantic-settings>=2,<3",
   "pymongo>=4.11,<5",
   "beanie>=2,<3",
   "python-dotenv>=1.0.0",
@@ -24,6 +25,10 @@ dependencies = [
   "brotli>=1.1.0",
   "async-timeout>=5.0.1",
   "langchain-mcp-adapters>=0.1.9",
+  "firecrawl-py>=3.4.0",
+  "google-api-python-client>=2.179.0",
+  "google-auth-oauthlib>=1.2.2",
+  "google-auth-httplib2>=0.2.0",
 ]
 
 [build-system]

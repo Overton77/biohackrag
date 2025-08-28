@@ -160,4 +160,7 @@ htmlcov/
 .DS_Store 
 
 
-backend/seedscripts/ 
+backend/seedscripts/  
+
+
+backend/quick_tests/ 

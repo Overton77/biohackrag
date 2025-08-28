@@ -1,10 +1,15 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable, Union
 import aiohttp
 from bs4 import BeautifulSoup  
-from bson import ObjectId 
-from src.mongo_schema_overwrite import init_beanie_with_pymongo, Episode, Transcript, Resource  
-from typing import Optional, List, Dict, Any, Iterable   
-from urllib.parse import urlparse  
+from urllib.parse import urlparse   
+from pydantic import BaseModel  
+
+from config.settings import get_settings   
+from src.mongo_schema_overwrite import Episode, Transcript, Resource, Person  
+from src.store_transcript_links import extract_transcript_url_enhanced 
+from firecrawl import AsyncFirecrawl  
+from config.firecrawl_client import firecrawl  
+from config.mongo_setup import init_beanie_with_pymongo 
 
 # Reuse the robust parsers implemented elsewhere
 from .episode_summaries import (
@@ -12,12 +17,13 @@ from .episode_summaries import (
     parse_resources as es_parse_resources,
     parse_major_summary as es_parse_major_summary,
     parse_sponsors as es_parse_sponsors, 
-    extract_episode_number as es_extract_episode_number, 
-)
-from src.store_transcript_links import extract_transcript_url_enhanced 
+    extract_episode_number as es_extract_episode_number,
+    parse_youtube_embed_url as es_parse_youtube_embed_url,
+)  
 import asyncio  
-from pymongo import AsyncMongoClient  
-import json 
+from beanie.odm.operators.find.element import Exists 
+
+settings = get_settings()   
 
 
 class WebpageEpisodeParse:
@@ -33,37 +39,46 @@ class WebpageEpisodeParse:
     Plus a master method to fetch HTML and return all parts together.
     """
 
-    def __init__(self, session: Optional[aiohttp.ClientSession] = None, timeout_s: int = 30) -> None:
+    def __init__(self, session: Optional[aiohttp.ClientSession] = None, timeout_s: int = 30, firecrawl_client: Optional[AsyncFirecrawl] = None) -> None:
         self._session = session
-        self._timeout_s = timeout_s
+        self._timeout_s = timeout_s 
+        # Default to the shared client if none provided
+        self._firecrawl_client = firecrawl_client or firecrawl
 
     async def _fetch_html(self, url: str) -> str:
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            "Accept": (
-                "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                "image/avif,image/webp,image/apng,*/*;q=0.8"
-            ),
-          
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache", 
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Referer": "https://daveasprey.com/",
-        }
+        headers = settings.web_fetch_headers
         if self._session is not None:
             async with self._session.get(url, headers=headers, allow_redirects=True) as response:
                 return await response.text()
         timeout = aiohttp.ClientTimeout(total=self._timeout_s)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url, headers=headers, allow_redirects=True) as response:
-                return await response.text()
+                return await response.text() 
+            
+    async def _get_guest_name(self, url: str) -> Optional[str]:   
+        class GuestName(BaseModel): 
+            guest_name: str  
+
+        if self._firecrawl_client is None:
+            return None
+
+        prompt = "Extract the guest name of the episode. The guest name is the name of the person who is the guest of the episode"
+        try:
+            res = await self._firecrawl_client.extract( 
+                urls=[url], 
+                prompt=prompt, 
+                schema=GuestName.model_json_schema(),   
+            ) 
+            if res.success: 
+                data = res.data 
+                if isinstance(data, dict):
+                    return data.get("guest_name") 
+            else: 
+                print(f"Error getting guest name: {res.error}")
+                return None 
+        except Exception as e:
+            print(f"Error getting guest name: {e}")
+            return None
 
     @staticmethod
     def _soup(html: str) -> BeautifulSoup:
@@ -92,28 +107,53 @@ class WebpageEpisodeParse:
         soup = self._soup(html) 
         return es_extract_episode_number(soup) 
 
+    def parse_youtube(self, html: str) -> Dict[str, Optional[str]]:
+        """Return embed URL, watch URL, and video id if present."""
+        soup = self._soup(html)
+        embed_url = es_parse_youtube_embed_url(soup)
+        video_id: Optional[str] = None
+        watch_url: Optional[str] = None
+        if embed_url:
+            # Typical format: https://www.youtube.com/embed/<video_id>
+            try:
+                video_id = embed_url.rstrip("/").split("/")[-1].split("?")[0]
+                watch_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else None
+            except Exception:
+                video_id = None
+                watch_url = None
+        return {
+            "youtube_embed_url": embed_url,
+            "youtube_watch_url": watch_url,
+            "youtube_video_id": video_id,
+        }
+
     async def parse_all_except_transcript(self, url: str) -> Dict[str, Any]:
         """Fetch HTML and return all parsed parts as a dictionary."""
         html = await self._fetch_html(url)
+        youtube = self.parse_youtube(html)
         return {
-            
-            #url on Transcript there is also episode_number 
             "timeline": self.parse_timeline(html),
             "resources": self.parse_resources(html), 
-            #Resource connected to webpage_resources Resource field url 
             "major_summary": self.parse_major_summary(html), 
-            #webpage_summary 
             "sponsors": self.parse_sponsors(html), 
-            #sponsors Will become Business later on if deemed. 
             "episode_number": self.parse_episode_number(html), 
+            **youtube,
         }   
     
     async def parse_all(self, url: str) -> Dict[str, Any]:
-        """Fetch HTML and return all parsed parts as a dictionary."""
+        """Fetch HTML once and return all parsed parts as a dictionary."""
         html = await self._fetch_html(url)
+        youtube = self.parse_youtube(html)
+        major = self.parse_major_summary(html)
         return {
             "transcript_link": self.parse_transcript_link(html), 
-            **(await self.parse_all_except_transcript(url))
+            "guest_name": await self._get_guest_name(url), 
+            "timeline": self.parse_timeline(html),
+            "resources": self.parse_resources(html), 
+            "major_summary": major, 
+            "sponsors": self.parse_sponsors(html), 
+            "episode_number": self.parse_episode_number(html), 
+            **youtube,
         }
     
     
@@ -208,7 +248,67 @@ async def _upsert_resources_from_items(
 
 
 
-async def update_all_episodes(_: Any) -> None:
+async def update_episodes_guest_and_youtube() -> None:
+    """
+    Streams episodes that have an episode_page_url.
+    For each episode:
+      - parse page for guest_name and youtube fields only
+      - upsert/link Person docs from guest_name
+      - update Episode youtube fields (youtube_embed_url, youtube_watch_url, youtube_video_id)
+    """  
+
+    await init_beanie_with_pymongo()  
+    parser = WebpageEpisodeParse()
+
+    # Stream instead of materializing the whole list.
+    # fetch_links=True so `episode.transcript` is the populated Transcript doc (if present)
+    async for episode in Episode.find(Exists(Episode.episode_page_url, True), fetch_links=True):
+        try:
+            ep_url = episode.episode_page_url
+            if not ep_url:
+                continue
+
+            data = await parser.parse_all(ep_url)
+            if not data:
+                continue
+
+            # ---- extract parsed fields safely
+            guest_name: Optional[str] = data.get("guest_name")    
+            youtube_embed_url: Optional[str] = data.get("youtube_embed_url")
+            youtube_watch_url: Optional[str] = data.get("youtube_watch_url")
+            youtube_video_id: Optional[str] = data.get("youtube_video_id")
+
+            # ---- upsert guest and attach to episode.guests
+            if guest_name:
+                person = await Person.find(Person.name == guest_name).first_or_none()
+                if not person:
+                    person = Person(name=guest_name)
+                    await person.insert()
+                if episode.guests is None:
+                    episode.guests = [person]
+                else:
+                    # Avoid duplicates by id
+                    existing_ids = {getattr(p, "id", None) for p in episode.guests}
+                    if getattr(person, "id", None) not in existing_ids:
+                        episode.guests.append(person)  # type: ignore[arg-type]
+
+            # ---- update Episode youtube fields (single save at end)
+            if youtube_embed_url:
+                episode.youtube_embed_url = youtube_embed_url
+            if youtube_watch_url:
+                episode.youtube_watch_url = youtube_watch_url
+            if youtube_video_id:
+                episode.youtube_video_id = youtube_video_id
+
+            await episode.save()
+
+        except Exception as e:
+            # Keep the loop going; you might also want to log this or push to an "errors" array on the episode
+            print(f"[update_episodes_guest_and_youtube] Failed for episode {getattr(episode, 'id', None)}: {e}")
+            continue
+
+
+async def update_all_episodes(episodes_to_update: Union[List[Episode], None] = None) -> None:
     """
     Streams episodes that have an episode_page_url.
     For each episode:
@@ -221,13 +321,14 @@ async def update_all_episodes(_: Any) -> None:
     parser = WebpageEpisodeParse()
 
     # Stream instead of materializing the whole list.
-    # fetch_links=True so `episode.transcript` is the populated Transcript doc (if present)
-    async for episode in Episode.find(Episode.episode_page_url.exists(True), fetch_links=True):
-        try:
-            # Require a transcript link/doc to update its timeline
-            if not episode.transcript:
-                continue
+    # fetch_links=True so `episode.transcript` is the populated Transcript doc (if present)  
+    if episodes_to_update is None:  
+        episodes = await Episode.find(Exists(Episode.episode_page_url, True), fetch_links=True).to_list()  
+    else: 
+        episodes = episodes_to_update  
 
+    for episode in episodes:  
+        try:
             ep_url = episode.episode_page_url
             if not ep_url:
                 continue
@@ -238,34 +339,58 @@ async def update_all_episodes(_: Any) -> None:
 
             # ---- extract parsed fields safely
             major = data.get("major_summary") or {}
-            minor_summary: Optional[str] = major.get("minor_summary")
-
+            minor_summary: Optional[str] = major.get("minor_summary") 
+            guest_name: Optional[str] = data.get("guest_name")    
+            episode_number_str: Optional[str] = data.get("episode_number")   
             sponsors: List[Dict[str, Any]] = data.get("sponsors") or []
             timeline: List[Dict[str, Any]] = data.get("timeline") or []
-
+            transcript_link: Optional[str] = data.get("transcript_link")
+            youtube_embed_url: Optional[str] = data.get("youtube_embed_url")
+            youtube_watch_url: Optional[str] = data.get("youtube_watch_url")
+            youtube_video_id: Optional[str] = data.get("youtube_video_id")
             resource_items = _normalize_resource_items(data)
             resources = await _upsert_resources_from_items(resource_items)
 
-            # ---- update Episode
+            # ---- upsert guest and attach to episode.guests
+            if guest_name:
+                person = await Person.find(Person.name == guest_name).first_or_none()
+                if not person:
+                    person = Person(name=guest_name)
+                    await person.insert()
+                if episode.guests is None:
+                    episode.guests = [person]
+                else:
+                    # Avoid duplicates by id
+                    existing_ids = {getattr(p, "id", None) for p in episode.guests}
+                    if getattr(person, "id", None) not in existing_ids:
+                        episode.guests.append(person)  # type: ignore[arg-type]
+
+            # ---- update Episode fields (single save at end)
             if minor_summary:
-                # per your note: put minor_summary into webpage_summary (you'll rewire later)
                 episode.webpage_summary = minor_summary
-
-            # sponsors is an array of objects
             if sponsors:
-                episode.sponsors = sponsors
-
-            # link Resource docs (your field allows Link[Resource] or legacy str)
+                episode.sponsors = sponsors 
+            if timeline:
+                episode.timeline = timeline
             if resources:
                 episode.webpage_resources = resources  # type: ignore[assignment]
+            if transcript_link:
+                episode.transcript_url = transcript_link
+            if episode_number_str:
+                try:
+                    episode.episode_number = int(episode_number_str)
+                except Exception:
+                    pass
+            if youtube_embed_url:
+                episode.youtube_embed_url = youtube_embed_url
+            if youtube_watch_url:
+                episode.youtube_watch_url = youtube_watch_url
+            if youtube_video_id:
+                episode.youtube_video_id = youtube_video_id
 
             await episode.save()
 
-            # ---- update Transcript timeline
-            tr: Optional[Transcript] = episode.transcript  # already populated via fetch_links=True
-            if tr and timeline:
-                tr.timeline = timeline
-                await tr.save()
+          
 
         except Exception as e:
             # Keep the loop going; you might also want to log this or push to an "errors" array on the episode
@@ -275,8 +400,19 @@ async def update_all_episodes(_: Any) -> None:
 
 
 
-if __name__ == "__main__": 
-    print("Importing webpage_ep_parsing.py")
-    # asyncio.run(main()) 
+async def run_one(episode_page_url: str): 
 
-    # asyncio.run(ingest_every_episode()) 
+    parser = WebpageEpisodeParse() 
+    data = await parser.parse_all(episode_page_url) 
+    print(data) 
+
+
+
+
+
+if __name__ == "__main__": 
+    print("Importing webpage_ep_parsing.py")   
+
+    # asyncio.run(run_one("https://daveasprey.com/1303-nayan-patel/"))
+    asyncio.run(update_episodes_guest_and_youtube())
+

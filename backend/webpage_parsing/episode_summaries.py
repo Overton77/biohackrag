@@ -220,49 +220,11 @@ def parse_html_content(html_content: str) -> Dict[str, Any]:
         "timeline": parse_episode_timeline(soup),
         "resources": parse_resources(soup),
         "major_summary": parse_major_summary(soup),
-        "sponsors": parse_sponsors(soup),
+        "sponsors": parse_sponsors(soup), 
+        "episode_number": extract_episode_number(soup),
+        "youtube_embed_url": parse_youtube_embed_url(soup),
     }
 
-
-# def main() -> None:
-#     html_path = r"C:\Users\Pinda\Proyectos\BioHackAgent\output\ep1332_aiohttp_20250805_144953.html"
-#     with open(html_path, "r", encoding="utf-8") as file:
-#         html_content = file.read()
-
-#     result = parse_html_content(html_content)  
-#     print(json.dumps(result, ensure_ascii=False, indent=2))
-#     return result 
-    
-async def save_to_mongo(result: Dict[str, Any]) -> None:  
-    episode_number = 1333 
-    client = await get_async_mongo_client()
-    if client is None:
-        print("Failed to connect to MongoDB")
-        return
-
-    db = client["biohack_agent"] 
-
-    collection = db["episode_urls"]   
-
-    episode_entry = await collection.find_one({"episode_number": episode_number})
-    
-    episode_id = episode_entry["_id"]  
-
-    all_timeline_entries = []  
-    for key, value in result.items(): 
-        if key == "timeline": 
-            for item in value: 
-                if item.get("time") and item.get("title"): 
-                    all_timeline_entries.append({
-                        "time": item["time"],
-                        "title": item["title"],
-                        "description": item.get("description"),
-                    })
-
-            await collection.update_one(
-                {"_id": episode_id},
-                {"$set": {"timeline": all_timeline_entries}}
-            )
 
 
 
@@ -331,6 +293,52 @@ async def parse_and_update_timeline_for_episode_url(episode_url: str) -> Optiona
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
+
+
+def parse_youtube_embed_url(soup: BeautifulSoup) -> Optional[str]:
+    """Extract the YouTube embed URL from common structures on the page.
+
+    Heuristics, in order:
+    1) <div class="rll-youtube-player"> data-src (preferred) or data-id
+    2) Any <iframe src="...youtube.com/embed/...">
+    3) Any element with data-src containing a youtube embed URL
+    4) <meta property/name="og:video"|"og:video:url"|"og:video:secure_url">
+    """
+    # 1) Elementor lazy YouTube wrapper commonly used on the site
+    wrapper = soup.find("div", class_="rll-youtube-player")
+    if wrapper is not None:
+        data_src = wrapper.get("data-src") or wrapper.get("data-url") or wrapper.get("data-embed-src")
+        if data_src and "youtube.com/embed" in data_src:
+            return data_src
+        video_id = wrapper.get("data-id")
+        if video_id:
+            return f"https://www.youtube.com/embed/{video_id}"
+
+    # 2) Direct iframe embed
+    iframe = soup.find("iframe", src=True)
+    if iframe is not None:
+        src = iframe.get("src")
+        if src and "youtube.com/embed" in src:
+            return src
+
+    # 3) Any data-src attribute that contains a youtube embed
+    for tag in soup.find_all(attrs={"data-src": True}):
+        candidate = tag.get("data-src")
+        if candidate and "youtube.com/embed" in candidate:
+            return candidate
+
+    # 4) Open Graph video tags
+    for prop in ["og:video", "og:video:url", "og:video:secure_url"]:
+        tag = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
+        if tag:
+            content = tag.get("content")
+            if content and "youtube.com/embed" in content:
+                return content
+
+    return None 
+
+def return_youtube_watch_url(youtube_embed_url: str) -> str:
+    return f"https://www.youtube.com/watch?v={youtube_embed_url.split('/')[-1]}" 
 
 
 def parse_major_summary(soup: BeautifulSoup) -> Dict[str, Any]:
@@ -474,7 +482,7 @@ def parse_sponsors(soup: BeautifulSoup) -> List[Dict[str, Any]]:
 
 if __name__ == "__main__":
     # Load a sample HTML file and print timeline, resources, major summary (with minor_summary), and sponsors
-    html_path = "C:/Users/Pinda/Proyectos/BioHackAgent/backend/output/ep1333_aiohttp_20250805_144953.html"
+    html_path = "C:/Users/Pinda/Proyectos/BioHackAgent/backend/output/episode_1303.html"
     with open(html_path, "r", encoding="utf-8") as f:
         html_content = f.read()
 
@@ -490,7 +498,16 @@ if __name__ == "__main__":
     print(json.dumps(parsed.get("major_summary", {}), ensure_ascii=False, indent=2))
 
     print("Sponsors:")
-    print(json.dumps(parsed.get("sponsors", []), ensure_ascii=False, indent=2))  
+    print(json.dumps(parsed.get("sponsors", []), ensure_ascii=False, indent=2))      
+
+    print("Episode number", json.dumps(parsed.get("episode_number", None), ensure_ascii=False, indent=2))
+
+    print("YouTube embed URL:")
+    print(json.dumps(parsed.get("youtube_embed_url", None), ensure_ascii=False, indent=2))
+
+    print("YouTube watch URL:")
+    print(return_youtube_watch_url(parsed.get("youtube_embed_url", None)))
+
 
 
 
