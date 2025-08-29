@@ -1,0 +1,16 @@
+
+aiohttp==3.12.4
+tenacity==8.5.0
+beautifulsoup4==4.12.3
+
+
+beanie>=2,<3
+pymongo>=4.11,<5
+dnspython==2.7.0
+
+
+pydantic>=2.11,<3
+pydantic-settings>=2,<3
+
+
+firecrawl-py>=3.4.0

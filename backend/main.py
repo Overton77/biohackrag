@@ -2,16 +2,15 @@ print("BIOHACKING AGENT")
 
 import os
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Optional, List 
+from typing import Literal, Dict, List, Optional
 
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel, Field 
 from dotenv import load_dotenv
 
 from src.mongo_schema_overwrite import init_beanie_with_pymongo, Episode, Transcript 
 from scraping_ops.find_episodes_selenium import update_episodes_url_selenium
-from src.store_transcript_links import process_all_missing_transcripts
-from webpage_parsing.webpage_ep_parsing import update_all_episodes
+from webpage_parsing.episode_enhacement_pipeline import enhance_episodes_by_ids, enhance_all_episodes 
 
 # MCP server & client pieces
 from mcp_server import mcp  # FastMCP(name="BiohackAgent", streamable_http_path="/")
@@ -20,7 +19,10 @@ from mcp.client.session import ClientSession
 from langchain_google_genai import ChatGoogleGenerativeAI   
 from langchain_mcp_adapters.tools import load_mcp_tools  
 from langchain_core.prompts import PromptTemplate 
-from langchain_core.output_parsers import StrOutputParser  
+from langchain_core.output_parsers import StrOutputParser    
+import json 
+from google.cloud import run_v2 
+from google.api_core.exceptions import GoogleAPICallError 
 
 
 
@@ -65,7 +67,20 @@ class UpdateTranscriptLinksRequest(BaseModel):
 class SummarizeEpisodeDumpRequest(BaseModel):
     timeline_string: str
     full_transcript_string: str
-    high_level_overview_string: str 
+    high_level_overview_string: str  
+
+class JobTrigger(BaseModel):
+    project_id: str = Field(default="animated-graph-463101-t5")
+    region: str = Field(default="us-central1")
+    job_name: str = Field(default="episode-enhancer")
+    wait: bool = Field(default=False)
+
+    # job runtime params
+    mode: Literal["all", "ids"] = "all"
+    concurrency: int = 10
+    only_missing_youtube: bool = False
+    episode_ids: Optional[List[str]] = None
+    extra_env: Optional[Dict[str, str]] = None  # optional additional env
 
 
 
@@ -86,7 +101,52 @@ def open_mcp_session():
 
 # ---------------------------------------------------------------------------
 # Routes
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- 
+
+def _build_overrides(p: JobTrigger) -> run_v2.RunJobRequest.Overrides:
+    args = ["python", "-m", "webpage_parsing.job_cli", f"--mode={p.mode}", f"--concurrency={p.concurrency}"]
+    env_vars = []
+
+    if p.mode == "all":
+        if p.only_missing_youtube:
+            args.append("--only-missing-youtube")
+    else:
+        env_vars.append(run_v2.EnvVar(name="EPISODE_IDS_JSON", value=json.dumps(p.episode_ids or [])))
+
+    if p.extra_env:
+        for k, v in p.extra_env.items():
+            env_vars.append(run_v2.EnvVar(name=str(k), value=str(v)))
+
+    return run_v2.RunJobRequest.Overrides(
+        task_count=1,
+        container_overrides=[
+            run_v2.RunJobRequest.Overrides.ContainerOverride(
+                name="",  # first container
+                args=args,
+                env=env_vars
+            )
+        ]
+    )
+
+@app.post("/jobs/execute")
+async def execute_job(p: JobTrigger):
+    client = run_v2.JobsClient()
+    name = client.job_path(project=p.project_id, location=p.region, job=p.job_name)
+    try:
+        op = client.run_job(request=run_v2.RunJobRequest(name=name, overrides=_build_overrides(p)))
+        if p.wait:
+            resp = op.result()
+            state = None
+            if resp.latest_created_execution and resp.latest_created_execution.completion_status:
+                state = resp.latest_created_execution.completion_status.state.name
+            return {"execution": resp.name, "state": state or "UNKNOWN"}
+        else:
+            return {"operation_name": op.operation.name}
+    except GoogleAPICallError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @app.post("/add_episodes_selenium")
 async def update_episodes(request: Request, update_data: UpdateRequest):
     if update_data.update:
@@ -94,15 +154,7 @@ async def update_episodes(request: Request, update_data: UpdateRequest):
         return {"message": "Episodes updated successfully", "updated_episodes": updated}
     return {"message": "Update not requested"} 
 
-@app.post("/update_episodes_after_selenium") 
-async def update_all_episodes_after_selenium(request: Request): 
-    await update_all_episodes(episodes_to_update=None) 
-    return {"message": "Episodes updated successfully"} 
 
-@app.post("/update_transcript_links")
-async def update_transcript_links(request: Request, update_data: UpdateTranscriptLinksRequest):
-    await process_all_missing_transcripts(request.app.state.mongo_client, update_data.limit)
-    return {"message": "Transcript links updated successfully"}
 
 @app.post("/ingest_transcript")
 async def ingest_transcript(request: Request):

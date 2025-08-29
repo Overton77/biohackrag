@@ -1,0 +1,23 @@
+# /Dockerfile.job
+FROM python:3.11-slim
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    ca-certificates tzdata curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    APP_HOME=/app
+
+WORKDIR ${APP_HOME}
+
+# Install only the job deps
+COPY requirements.job.txt ./requirements.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# Copy the source (your repo root has main.py, webpage_parsing/, etc.)
+COPY . ./
+
+# Default command (Cloud Run Jobs will override args when executing)
+# This runs "all" mode if you exec without overrides.
+CMD ["python", "-m", "webpage_parsing.job_cli", "--mode=all", "--concurrency=10"]

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from config.settings import get_settings   
 from src.mongo_schema_overwrite import Episode, Transcript, Resource, Person  
-from src.store_transcript_links import extract_transcript_url_enhanced 
+from .store_transcript_links import extract_transcript_url_enhanced 
 from firecrawl import AsyncFirecrawl  
 from config.firecrawl_client import firecrawl  
 from config.mongo_setup import init_beanie_with_pymongo 
@@ -21,7 +21,10 @@ from .episode_summaries import (
     parse_youtube_embed_url as es_parse_youtube_embed_url,
 )  
 import asyncio  
-from beanie.odm.operators.find.element import Exists 
+from beanie.odm.operators.find.element import Exists  
+from beanie.odm.operators.find.logical import And, Or, Not
+from beanie.odm.operators.find.comparison import NE, Eq
+
 
 settings = get_settings()   
 
@@ -149,7 +152,7 @@ class WebpageEpisodeParse:
             "transcript_link": self.parse_transcript_link(html), 
             "guest_name": await self._get_guest_name(url), 
             "timeline": self.parse_timeline(html),
-            "resources": self.parse_resources(html), 
+            "resources": self.parse_resources(html),  
             "major_summary": major, 
             "sponsors": self.parse_sponsors(html), 
             "episode_number": self.parse_episode_number(html), 
@@ -176,24 +179,6 @@ def _guess_title(text: Optional[str], url: str) -> Optional[str]:
         return None
 
 
-def _normalize_resource_items(data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Accepts a parser payload and returns a normalized list of items like:
-      {"text": "... : https://example.com", "links": ["https://example.com"]}
-
-    Adjust the keys if your parser uses a different one (e.g., "webpage_resources").
-    """
-    if not data:
-        return []
-    maybe_lists = [
-        data.get("resources"),
-        data.get("webpage_resources"),
-        data.get("references"),
-    ]
-    for lst in maybe_lists:
-        if isinstance(lst, list):
-            return lst
-    return []
 
 
 async def _upsert_resources_from_items(
@@ -250,19 +235,38 @@ async def _upsert_resources_from_items(
 
 async def update_episodes_guest_and_youtube() -> None:
     """
-    Streams episodes that have an episode_page_url.
-    For each episode:
-      - parse page for guest_name and youtube fields only
-      - upsert/link Person docs from guest_name
-      - update Episode youtube fields (youtube_embed_url, youtube_watch_url, youtube_video_id)
-    """  
-
-    await init_beanie_with_pymongo()  
+    One-off updater:
+      - Streams episodes that HAVE a non-empty episode_page_url
+      - AND that are missing at least one of the youtube_* fields
+      - Parses guest/youtube data and updates the Episode + Person link
+    """
+    await init_beanie_with_pymongo()
     parser = WebpageEpisodeParse()
 
-    # Stream instead of materializing the whole list.
-    # fetch_links=True so `episode.transcript` is the populated Transcript doc (if present)
-    async for episode in Episode.find(Exists(Episode.episode_page_url, True), fetch_links=True):
+    # Episodes to process:
+    #   - episode_page_url exists AND not None AND not ""
+    #   - at least one of the youtube_* fields is missing/None/""
+    filter_expr = And(
+        Exists(Episode.episode_page_url, True),
+        NE(Episode.episode_page_url, None),
+        NE(Episode.episode_page_url, ""),
+        Or(
+            Not(Exists(Episode.youtube_embed_url, True)),
+            Eq(Episode.youtube_embed_url, None),
+            Eq(Episode.youtube_embed_url, ""),
+
+            Not(Exists(Episode.youtube_watch_url, True)),
+            Eq(Episode.youtube_watch_url, None),
+            Eq(Episode.youtube_watch_url, ""),
+
+            Not(Exists(Episode.youtube_video_id, True)),
+            Eq(Episode.youtube_video_id, None),
+            Eq(Episode.youtube_video_id, ""),
+        ),
+    )
+
+    # Stream results; fetch_links=True to hydrate linked Transcript, etc.
+    async for episode in Episode.find(filter_expr, fetch_links=True):
         try:
             ep_url = episode.episode_page_url
             if not ep_url:
@@ -272,27 +276,27 @@ async def update_episodes_guest_and_youtube() -> None:
             if not data:
                 continue
 
-            # ---- extract parsed fields safely
-            guest_name: Optional[str] = data.get("guest_name")    
+            # ---- parsed fields
+            guest_name: Optional[str] = data.get("guest_name")
             youtube_embed_url: Optional[str] = data.get("youtube_embed_url")
             youtube_watch_url: Optional[str] = data.get("youtube_watch_url")
             youtube_video_id: Optional[str] = data.get("youtube_video_id")
 
-            # ---- upsert guest and attach to episode.guests
+            # ---- upsert/link guest
             if guest_name:
                 person = await Person.find(Person.name == guest_name).first_or_none()
                 if not person:
                     person = Person(name=guest_name)
                     await person.insert()
+
                 if episode.guests is None:
                     episode.guests = [person]
                 else:
-                    # Avoid duplicates by id
                     existing_ids = {getattr(p, "id", None) for p in episode.guests}
                     if getattr(person, "id", None) not in existing_ids:
                         episode.guests.append(person)  # type: ignore[arg-type]
 
-            # ---- update Episode youtube fields (single save at end)
+            # ---- update youtube fields (only set if we got values)
             if youtube_embed_url:
                 episode.youtube_embed_url = youtube_embed_url
             if youtube_watch_url:
@@ -303,7 +307,6 @@ async def update_episodes_guest_and_youtube() -> None:
             await episode.save()
 
         except Exception as e:
-            # Keep the loop going; you might also want to log this or push to an "errors" array on the episode
             print(f"[update_episodes_guest_and_youtube] Failed for episode {getattr(episode, 'id', None)}: {e}")
             continue
 
@@ -348,8 +351,11 @@ async def update_all_episodes(episodes_to_update: Union[List[Episode], None] = N
             youtube_embed_url: Optional[str] = data.get("youtube_embed_url")
             youtube_watch_url: Optional[str] = data.get("youtube_watch_url")
             youtube_video_id: Optional[str] = data.get("youtube_video_id")
-            resource_items = _normalize_resource_items(data)
-            resources = await _upsert_resources_from_items(resource_items)
+            resources = data.get("resources") or []  
+
+            await _upsert_resources_from_items(resources)
+
+
 
             # ---- upsert guest and attach to episode.guests
             if guest_name:
